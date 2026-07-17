@@ -25,7 +25,9 @@ sap.ui.define([
      * record is POSTed to /Incident.
      * ------------------------------------------------------- */
     _createDraftIncident: function () {
-      var oModel = this.getView().getModel();          // default OData v4 model
+      // Models propagate from the component; the view is not yet attached
+      // to the control tree during onInit, so getView().getModel() is undefined here.
+      var oModel = this.getOwnerComponent().getModel();
       var oListBinding = oModel.bindList("/Incident", null, [], [], {
         $$updateGroupId: "incidentGroup"
       });
