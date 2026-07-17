@@ -1,0 +1,168 @@
+<mvc:View
+  controllerName="itsm.ui.controller.Main"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:u="sap.ui.unified"
+  displayBlock="true">
+
+  <Page showHeader="false" backgroundDesign="Transparent" class="appBg">
+
+    <!-- breadcrumb + search -->
+    <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom">
+      <Breadcrumbs currentLocationText="Incidents">
+        <Link text="Vantara Industries"/>
+      </Breadcrumbs>
+      <HBox alignItems="Center">
+        <SearchField placeholder="Search Tickets, Assets,..." width="260px"/>
+        <Button icon="sap-icon://menu2" type="Transparent"/>
+      </HBox>
+    </HBox>
+
+    <!-- header -->
+    <VBox class="headerCard">
+      <HBox justifyContent="SpaceBetween" alignItems="Center">
+        <VBox>
+          <Text text="New Ticket" class="headerTitle"/>
+          <Text text="Creating New Service Request Record" class="headerSub"/>
+        </VBox>
+        <HBox>
+          <Button text="Save" class="saveBtn sapUiTinyMarginEnd" press=".onSave"/>
+          <Button text="Submit" class="submitBtn" press=".onSubmit"/>
+        </HBox>
+      </HBox>
+    </VBox>
+
+    <IconTabBar id="tabs" expanded="true" backgroundDesign="Transparent" headerBackgroundDesign="Transparent">
+      <items>
+
+        <!-- DETAILS -->
+        <IconTabFilter text="Details" key="details">
+
+          <VBox class="sectionCard">
+            <Text text="REPORT DETAILS" class="sectionPill"/>
+            <f:SimpleForm editable="true" layout="ColumnLayout" columnsM="2" columnsL="3" columnsXL="3">
+
+              <Label text="Incident #"/>
+              <Input value="{incidentNumber}" placeholder="auto"/>
+
+              <Label text="User ID"/>
+              <Input value="{userId}"/>
+
+              <Label text="Reported By"/>
+              <Input value="{reportedBy}" placeholder="Mr. Raju"/>
+
+              <Label text="Impact" required="true"/>
+              <Select selectedKey="{impact_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+              <Label text="Urgency" required="true"/>
+              <Select selectedKey="{urgency_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+              <Label text="Message Processor"/>
+              <Input value="{messageProcessor}" placeholder="Search for processor..."/>
+
+              <Label text="Support Team"/>
+              <Input value="{supportTeam}"/>
+
+              <Label text="Final Priority" required="true"/>
+              <Select selectedKey="{priority_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+              <Label text="Status"/>
+              <Select selectedKey="{status_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+            </f:SimpleForm>
+
+            <Label text="Short Description" required="true" class="sapUiSmallMarginTop"/>
+            <TextArea rows="3" width="100%"
+              value="{shortDescription}"
+              placeholder="Provide the precise summary of the incident."/>
+          </VBox>
+
+          <VBox class="sectionCard">
+            <Text text="CATEGORY ASSIGNMENT" class="sectionPill"/>
+            <f:SimpleForm editable="true" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+
+              <Label text="Category 1"/>
+              <Select selectedKey="{category1_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY1' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+              <Label text="Category 2"/>
+              <Select selectedKey="{category2_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY2' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+              <Label text="Category 3"/>
+              <Select selectedKey="{category3_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY3' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+              <Label text="Category 4"/>
+              <Select selectedKey="{category4_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY4' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+              <Label text="Solution Category"/>
+              <Select selectedKey="{solutionCategory_ID}"
+                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'SOLUTION' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </Select>
+
+            </f:SimpleForm>
+          </VBox>
+
+        </IconTabFilter>
+
+        <!-- DESCRIPTION -->
+        <IconTabFilter text="Description" key="description">
+          <VBox class="sectionCard">
+            <Text text="Description Details" class="sectionPill"/>
+            <Label text="Full Description" required="true"/>
+            <TextArea rows="10" width="100%"
+              value="{description}"
+              placeholder="Enter detailed technical notes and incident analysis..."/>
+          </VBox>
+        </IconTabFilter>
+
+        <!-- ATTACHMENTS -->
+        <IconTabFilter text="Attachments" key="attachments">
+          <VBox class="uploadCard">
+            <core:Icon src="sap-icon://upload" size="1.75rem" color="#16a34a" class="sapUiTinyMarginBottom"/>
+            <Title text="Upload Attachments" level="H4"/>
+            <Text text="Select files to attach after the incident is saved" class="sapUiSmallMarginBottom"/>
+            <u:FileUploader
+              id="fileUploader"
+              buttonOnly="true"
+              buttonText="Browse Files"
+              multiple="true"
+              change=".onFileSelected"
+              style="Emphasized"/>
+            <Text text="Maximum file size: 50MB. Supported: JPG, PNG, PDF, DOCX, XLSX" class="sapUiSmallMarginTop"/>
+            <List id="attachmentList" items="{path:'attachments>/list'}" class="sapUiSmallMarginTop" noDataText="No attachments queued">
+              <StandardListItem title="{attachments>fileName}" description="{attachments>mimeType}" info="{attachments>fileSize} B"/>
+            </List>
+          </VBox>
+        </IconTabFilter>
+
+      </items>
+    </IconTabBar>
+
+  </Page>
+</mvc:View>

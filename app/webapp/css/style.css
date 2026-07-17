@@ -1,0 +1,34 @@
+html, body { height: 100%; margin: 0; background: #eef2ff; }
+.appBg { background: #eef2ff; padding: 12px; }
+
+.headerCard {
+  background: linear-gradient(180deg,#f4f6ff,#e9edff);
+  border-radius: 14px; padding: 18px 22px; margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+.headerTitle { color:#3f4ff0; font-size: 26px; font-weight: 700; }
+.headerSub { color:#6b7280; font-size: 13px; margin-top: 2px; }
+
+.sectionCard {
+  background:#fff; border-radius: 14px; padding: 18px 20px; margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+.sectionPill {
+  display:inline-block; background:#e5e7eb; color:#374151;
+  padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight:600;
+  margin-bottom: 12px;
+}
+
+.saveBtn button {
+  background:#22c55e !important; border-color:#22c55e !important;
+  color:#fff !important; border-radius: 999px !important;
+}
+.submitBtn button {
+  background:#2563eb !important; border-color:#2563eb !important;
+  color:#fff !important; border-radius: 999px !important;
+}
+
+.uploadCard {
+  background:#fff; border-radius:14px; padding:28px; text-align:center;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
