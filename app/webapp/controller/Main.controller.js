@@ -1,10 +1,18 @@
 sap.ui.define([
   "sap/ui/core/mvc/Controller",
   "sap/ui/model/json/JSONModel",
+  "sap/ui/model/Filter",
+  "sap/ui/model/FilterOperator",
+  "sap/ui/model/Sorter",
   "sap/m/MessageToast",
   "sap/m/MessageBox"
-], function (Controller, JSONModel, MessageToast, MessageBox) {
+], function (Controller, JSONModel, Filter, FilterOperator, Sorter, MessageToast, MessageBox) {
   "use strict";
+
+  // Root of the category tree. Everything below it is discovered via parent_ID,
+  // so new levels/values are added in master data, not here.
+  var CAT_ROOT_TYPE = "CATEGORY1";
+  var CAT_PAGE_SIZE = 500;
 
   return Controller.extend("itsm.ui.controller.Main", {
 
@@ -17,6 +25,182 @@ sap.ui.define([
 
       // Create a fresh transient Incident context bound to the form
       this._createDraftIncident();
+
+      // Cascading category dropdowns
+      this._setupCategories();
+    },
+
+    /* ---------------------------------------------------------
+     * Tabs are in-page navigation — scroll to the matching section
+     * instead of swapping content.
+     * ------------------------------------------------------- */
+    onTabSelect: function (oEvent) {
+      var mSections = {
+        details: "secDetails",
+        description: "secDescription",
+        attachments: "secAttachments"
+      };
+      var oSection = this.byId(mSections[oEvent.getParameter("key")]);
+      if (oSection) {
+        this.byId("page").scrollToElement(oSection.getDomRef(), 400);
+      }
+    },
+
+    /* =========================================================
+     * CASCADING CATEGORIES
+     *
+     * The hierarchy lives entirely in LookupValue.parent_ID. This
+     * controller never hardcodes which values belong to which
+     * parent — it only ever asks the service for "children of X".
+     *
+     * Depth is discovered by probing for selCategory1..N controls,
+     * so adding a 5th level means adding a 5th Select to the view;
+     * no logic here changes.
+     * ======================================================= */
+
+    _setupCategories: function () {
+      // Discover how many category levels the view declares.
+      this._aCatLevels = [];
+      for (var i = 1; this.byId("selCategory" + i); i++) {
+        this._aCatLevels.push("selCategory" + i);
+      }
+
+      // Children are fetched one level at a time and cached by parent id,
+      // so the full tree is never loaded and repeat visits cost no requests.
+      this._mCatCache = {};
+
+      var aLevels = this._aCatLevels.map(function () {
+        return { items: [], enabled: false, busy: false, noChildren: false };
+      });
+      this.getView().setModel(new JSONModel({ levels: aLevels }), "cat");
+
+      // Level 1 = roots; deeper levels populate from the current record (edit
+      // case) or stay disabled until a parent is picked (create case).
+      this._loadLevel(0, null).then(this._restoreCategoryChain.bind(this));
+    },
+
+    /**
+     * Fetch the children of a parent (or the roots when sParentId is null).
+     * Cached per parent id.
+     */
+    _fetchChildren: function (sParentId) {
+      var sKey = sParentId || "__root__";
+      if (this._mCatCache[sKey]) {
+        return Promise.resolve(this._mCatCache[sKey]);
+      }
+
+      var aFilters = [new Filter("isActive", FilterOperator.EQ, true)];
+      if (sParentId) {
+        aFilters.push(new Filter("parent_ID", FilterOperator.EQ, sParentId));
+      } else {
+        aFilters.push(new Filter("lookupType", FilterOperator.EQ, CAT_ROOT_TYPE));
+      }
+
+      var oBinding = this.getOwnerComponent().getModel().bindList(
+        "/Lookup", null, [new Sorter("sequence")], aFilters
+      );
+
+      var that = this;
+      return oBinding.requestContexts(0, CAT_PAGE_SIZE).then(function (aContexts) {
+        var aItems = aContexts.map(function (oCtx) {
+          return { ID: oCtx.getProperty("ID"), name: oCtx.getProperty("name") };
+        });
+        that._mCatCache[sKey] = aItems;
+        return aItems;
+      });
+    },
+
+    /**
+     * Populate one level with the children of sParentId.
+     */
+    _loadLevel: function (iLevel, sParentId) {
+      if (iLevel >= this._aCatLevels.length) { return Promise.resolve([]); }
+
+      var oCat = this.getView().getModel("cat");
+      var sPath = "/levels/" + iLevel + "/";
+      oCat.setProperty(sPath + "busy", true);
+
+      var that = this;
+      return this._fetchChildren(sParentId).then(function (aItems) {
+        oCat.setProperty(sPath + "items", aItems);
+        oCat.setProperty(sPath + "enabled", aItems.length > 0);
+        // Only tell the user a branch is a dead end once they've chosen a parent.
+        oCat.setProperty(sPath + "noChildren", aItems.length === 0 && !!sParentId);
+        oCat.setProperty(sPath + "busy", false);
+        return aItems;
+      }).catch(function (oErr) {
+        oCat.setProperty(sPath + "busy", false);
+        MessageBox.error("Could not load categories: " + (oErr.message || oErr));
+        return [];
+      });
+    },
+
+    /**
+     * Clear every level from iFrom downwards, in both the UI model and the
+     * incident record.
+     */
+    _clearLevelsFrom: function (iFrom) {
+      var oCat = this.getView().getModel("cat");
+      for (var i = iFrom; i < this._aCatLevels.length; i++) {
+        oCat.setProperty("/levels/" + i + "/items", []);
+        oCat.setProperty("/levels/" + i + "/enabled", false);
+        oCat.setProperty("/levels/" + i + "/noChildren", false);
+        oCat.setProperty("/levels/" + i + "/busy", false);
+        this._setCategoryValue(i, null);
+      }
+    },
+
+    _setCategoryValue: function (iLevel, sValue) {
+      if (this._oIncidentContext) {
+        this._oIncidentContext.setProperty("category" + (iLevel + 1) + "_ID", sValue);
+      }
+    },
+
+    _getCategoryValue: function (iLevel) {
+      return this._oIncidentContext
+        ? this._oIncidentContext.getProperty("category" + (iLevel + 1) + "_ID")
+        : null;
+    },
+
+    /**
+     * A parent changed: drop every selection below it, then load the next level.
+     */
+    onCategoryChange: function (oEvent) {
+      var sLocalId = oEvent.getSource().getId().split("--").pop();
+      var iLevel = this._aCatLevels.indexOf(sLocalId);
+      if (iLevel === -1) { return; }
+
+      var sKey = oEvent.getSource().getSelectedKey();
+
+      // Resetting first guarantees a stale grandchild can never survive.
+      this._clearLevelsFrom(iLevel + 1);
+      this._setCategoryValue(iLevel, sKey || null);
+
+      if (sKey) {
+        this._loadLevel(iLevel + 1, sKey);
+      }
+    },
+
+    /**
+     * Editing an existing record: walk down the saved chain so each level has
+     * its options loaded and the stored selections survive.
+     */
+    _restoreCategoryChain: function () {
+      var that = this;
+      var iLevel = 0;
+
+      function step() {
+        var sValue = that._getCategoryValue(iLevel);
+        if (!sValue || iLevel + 1 >= that._aCatLevels.length) {
+          return Promise.resolve();
+        }
+        return that._loadLevel(iLevel + 1, sValue).then(function () {
+          iLevel++;
+          return step();
+        });
+      }
+
+      return step();
     },
 
     /* ---------------------------------------------------------

@@ -7,12 +7,12 @@
   xmlns:u="sap.ui.unified"
   displayBlock="true">
 
-  <Page showHeader="false" backgroundDesign="Transparent" class="appBg">
+  <Page id="page" showHeader="false" backgroundDesign="Transparent" class="appBg">
 
     <!-- breadcrumb + search -->
     <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom">
       <Breadcrumbs currentLocationText="Incidents">
-        <Link text="Vantara Industries"/>
+        <Link text="Ccentrik | Service Desk"/>
       </Breadcrumbs>
       <HBox alignItems="Center">
         <SearchField placeholder="Search Tickets, Assets,..." width="260px"/>
@@ -34,11 +34,19 @@
       </HBox>
     </VBox>
 
-    <IconTabBar id="tabs" expanded="true" backgroundDesign="Transparent" headerBackgroundDesign="Transparent">
+    <!-- Tabs act as in-page navigation: selecting one scrolls to its section. -->
+    <IconTabHeader id="tabs" mode="Inline" backgroundDesign="Transparent" select=".onTabSelect">
       <items>
+        <IconTabFilter text="Details" key="details"/>
+        <IconTabFilter text="Description" key="description"/>
+        <IconTabFilter text="Attachments" key="attachments"/>
+      </items>
+    </IconTabHeader>
+
+    <VBox id="sections">
 
         <!-- DETAILS -->
-        <IconTabFilter text="Details" key="details">
+        <VBox id="secDetails">
 
           <VBox class="sectionCard">
             <Text text="REPORT DETAILS" class="sectionPill"/>
@@ -95,29 +103,60 @@
             <Text text="CATEGORY ASSIGNMENT" class="sectionPill"/>
             <f:SimpleForm editable="true" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
 
+              <!-- Cascading categories. Each level is filled by the controller
+                   from the children of the level above, so depth and content
+                   come purely from master data. -->
               <Label text="Category 1"/>
-              <Select selectedKey="{category1_ID}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY1' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
+              <Select id="selCategory1" selectedKey="{category1_ID}"
+                      items="{cat>/levels/0/items}"
+                      enabled="{cat>/levels/0/enabled}"
+                      busy="{cat>/levels/0/busy}"
+                      busyIndicatorDelay="0"
+                      forceSelection="false"
+                      width="100%"
+                      change=".onCategoryChange">
+                <core:Item key="{cat>ID}" text="{cat>name}"/>
               </Select>
+              <Text text="No subcategories available" visible="{cat>/levels/0/noChildren}" class="noSubText"/>
 
               <Label text="Category 2"/>
-              <Select selectedKey="{category2_ID}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY2' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
+              <Select id="selCategory2" selectedKey="{category2_ID}"
+                      items="{cat>/levels/1/items}"
+                      enabled="{cat>/levels/1/enabled}"
+                      busy="{cat>/levels/1/busy}"
+                      busyIndicatorDelay="0"
+                      forceSelection="false"
+                      width="100%"
+                      change=".onCategoryChange">
+                <core:Item key="{cat>ID}" text="{cat>name}"/>
               </Select>
+              <Text text="No subcategories available" visible="{cat>/levels/1/noChildren}" class="noSubText"/>
 
               <Label text="Category 3"/>
-              <Select selectedKey="{category3_ID}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY3' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
+              <Select id="selCategory3" selectedKey="{category3_ID}"
+                      items="{cat>/levels/2/items}"
+                      enabled="{cat>/levels/2/enabled}"
+                      busy="{cat>/levels/2/busy}"
+                      busyIndicatorDelay="0"
+                      forceSelection="false"
+                      width="100%"
+                      change=".onCategoryChange">
+                <core:Item key="{cat>ID}" text="{cat>name}"/>
               </Select>
+              <Text text="No subcategories available" visible="{cat>/levels/2/noChildren}" class="noSubText"/>
 
               <Label text="Category 4"/>
-              <Select selectedKey="{category4_ID}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'CATEGORY4' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
+              <Select id="selCategory4" selectedKey="{category4_ID}"
+                      items="{cat>/levels/3/items}"
+                      enabled="{cat>/levels/3/enabled}"
+                      busy="{cat>/levels/3/busy}"
+                      busyIndicatorDelay="0"
+                      forceSelection="false"
+                      width="100%"
+                      change=".onCategoryChange">
+                <core:Item key="{cat>ID}" text="{cat>name}"/>
               </Select>
+              <Text text="No subcategories available" visible="{cat>/levels/3/noChildren}" class="noSubText"/>
 
               <Label text="Solution Category"/>
               <Select selectedKey="{solutionCategory_ID}"
@@ -128,10 +167,10 @@
             </f:SimpleForm>
           </VBox>
 
-        </IconTabFilter>
+        </VBox>
 
         <!-- DESCRIPTION -->
-        <IconTabFilter text="Description" key="description">
+        <VBox id="secDescription">
           <VBox class="sectionCard">
             <Text text="Description Details" class="sectionPill"/>
             <Label text="Full Description" required="true"/>
@@ -139,10 +178,10 @@
               value="{description}"
               placeholder="Enter detailed technical notes and incident analysis..."/>
           </VBox>
-        </IconTabFilter>
+        </VBox>
 
         <!-- ATTACHMENTS -->
-        <IconTabFilter text="Attachments" key="attachments">
+        <VBox id="secAttachments">
           <VBox class="uploadCard">
             <core:Icon src="sap-icon://upload" size="1.75rem" color="#16a34a" class="sapUiTinyMarginBottom"/>
             <Title text="Upload Attachments" level="H4"/>
@@ -159,10 +198,9 @@
               <StandardListItem title="{attachments>fileName}" description="{attachments>mimeType}" info="{attachments>fileSize} B"/>
             </List>
           </VBox>
-        </IconTabFilter>
+        </VBox>
 
-      </items>
-    </IconTabBar>
+    </VBox>
 
   </Page>
 </mvc:View>
