@@ -13,10 +13,39 @@ function categoryLevels(entity) {
     .map(match => `${match[0]}_ID`);
 }
 
+// Numbers start just below the first issued value so the first ticket is INC-22939.
+const INCIDENT_NUMBER_PREFIX = 'INC-';
+const INCIDENT_NUMBER_SEED = 22938;
+
+/**
+ * Compute the next incident number from the highest one already stored.
+ * Runs inside the request so it sees committed rows; assignment happens in a
+ * before-CREATE handler, so concurrent creates are serialised by the DB layer
+ * rather than racing on a client-supplied value.
+ */
+async function computeNextIncidentNumber(Incident) {
+  const rows = await SELECT.from(Incident).columns('incidentNumber');
+  let max = INCIDENT_NUMBER_SEED;
+  for (const row of rows) {
+    const match = /^INC-(\d+)$/.exec(row.incidentNumber || '');
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  return INCIDENT_NUMBER_PREFIX + (max + 1);
+}
+
 module.exports = cds.service.impl(async function () {
   const { Incident } = this.entities;
   const { LookupValue } = cds.entities('itsm');
   const levels = categoryLevels(Incident);
+
+  // Read-only preview for the form. Not authoritative.
+  this.on('nextIncidentNumber', () => computeNextIncidentNumber(Incident));
+
+  // Authoritative assignment. Always overrides whatever the client sent so the
+  // number can never be spoofed or duplicated from the frontend.
+  this.before('CREATE', Incident, async (req) => {
+    req.data.incidentNumber = await computeNextIncidentNumber(Incident);
+  });
 
   /**
    * A child category must actually belong to the parent chosen one level up.

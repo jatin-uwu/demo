@@ -64,9 +64,12 @@
         "async": true
       },
       "routes": [
-        { "pattern": "", "name": "main", "target": "main" }
+        { "pattern": "", "name": "list", "target": "list" },
+        { "pattern": "create", "name": "create", "target": "main" },
+        { "pattern": "ticket/{id}", "name": "detail", "target": "main" }
       ],
       "targets": {
+        "list": { "viewName": "TicketList", "viewId": "list" },
         "main": { "viewName": "Main", "viewId": "main" }
       }
     }

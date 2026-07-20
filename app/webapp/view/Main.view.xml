@@ -23,13 +23,21 @@
     <!-- header -->
     <VBox class="headerCard">
       <HBox justifyContent="SpaceBetween" alignItems="Center">
-        <VBox>
-          <Text text="New Ticket" class="headerTitle"/>
-          <Text text="Creating New Service Request Record" class="headerSub"/>
-        </VBox>
+        <HBox alignItems="Center">
+          <Button icon="sap-icon://nav-back" type="Transparent"
+                  tooltip="Back to list"
+                  visible="{ui>/showBack}"
+                  press=".onBack"
+                  class="sapUiTinyMarginEnd"/>
+          <VBox>
+            <Text text="{ui>/title}" class="headerTitle"/>
+            <Text text="{ui>/subtitle}" class="headerSub"/>
+          </VBox>
+        </HBox>
         <HBox>
-          <Button text="Save" class="saveBtn sapUiTinyMarginEnd" press=".onSave"/>
-          <Button text="Submit" class="submitBtn" press=".onSubmit"/>
+          <Button text="Edit" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showEdit}" press=".onEdit"/>
+          <Button text="Save" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showSave}" press=".onSave"/>
+          <Button text="Submit" class="submitBtn" visible="{ui>/showSubmit}" press=".onSubmit"/>
         </HBox>
       </HBox>
     </VBox>
@@ -50,10 +58,10 @@
 
           <VBox class="sectionCard">
             <Text text="REPORT DETAILS" class="sectionPill"/>
-            <f:SimpleForm editable="true" layout="ColumnLayout" columnsM="2" columnsL="3" columnsXL="3">
+            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="3" columnsXL="3">
 
               <Label text="Incident #"/>
-              <Input value="{incidentNumber}" placeholder="auto"/>
+              <Input value="{incidentNumber}" editable="false" placeholder="Auto-generated"/>
 
               <Label text="User ID"/>
               <Input value="{userId}"/>
@@ -94,14 +102,14 @@
             </f:SimpleForm>
 
             <Label text="Short Description" required="true" class="sapUiSmallMarginTop"/>
-            <TextArea rows="3" width="100%"
+            <TextArea rows="3" width="100%" editable="{ui>/formEditable}"
               value="{shortDescription}"
               placeholder="Provide the precise summary of the incident."/>
           </VBox>
 
           <VBox class="sectionCard">
             <Text text="CATEGORY ASSIGNMENT" class="sectionPill"/>
-            <f:SimpleForm editable="true" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
 
               <!-- Cascading categories. Each level is filled by the controller
                    from the children of the level above, so depth and content
@@ -174,7 +182,7 @@
           <VBox class="sectionCard">
             <Text text="Description Details" class="sectionPill"/>
             <Label text="Full Description" required="true"/>
-            <TextArea rows="10" width="100%"
+            <TextArea rows="10" width="100%" editable="{ui>/formEditable}"
               value="{description}"
               placeholder="Enter detailed technical notes and incident analysis..."/>
           </VBox>
@@ -191,6 +199,7 @@
               buttonOnly="true"
               buttonText="Browse Files"
               multiple="true"
+              enabled="{ui>/formEditable}"
               change=".onFileSelected"
               style="Emphasized"/>
             <Text text="Maximum file size: 50MB. Supported: JPG, PNG, PDF, DOCX, XLSX" class="sapUiSmallMarginTop"/>

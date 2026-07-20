@@ -23,11 +23,116 @@ sap.ui.define([
       // Local model for pending attachments (before incident is saved)
       this.getView().setModel(new JSONModel({ list: [] }), "attachments");
 
-      // Create a fresh transient Incident context bound to the form
-      this._createDraftIncident();
+      // Drives header buttons and form editability by mode.
+      this.getView().setModel(new JSONModel({}), "ui");
 
-      // Cascading category dropdowns
+      // The form is shared by two routes: "create" (new draft) and
+      // "detail" (view an existing ticket). The view is cached and reused, so
+      // the per-visit setup lives in the route-matched handlers, not onInit.
+      var oRouter = this.getOwnerComponent().getRouter();
+      oRouter.getRoute("create").attachPatternMatched(this._onCreateMatched, this);
+      oRouter.getRoute("detail").attachPatternMatched(this._onDetailMatched, this);
+    },
+
+    /**
+     * Switch the form between "create", "view" and "edit". Everything the
+     * header and fields react to lives in the "ui" model, so the view stays
+     * declarative.
+     */
+    _setMode: function (sMode) {
+      this._sMode = sMode;
+      var sNumber = this._oIncidentContext
+        ? this._oIncidentContext.getProperty("incidentNumber")
+        : null;
+
+      var mModes = {
+        create: {
+          title: "New Ticket",
+          subtitle: "Creating New Service Request Record",
+          formEditable: true,
+          showBack: true, showEdit: false, showSave: true, showSubmit: true
+        },
+        view: {
+          title: sNumber || "Ticket",
+          subtitle: "Viewing service request",
+          formEditable: false,
+          showBack: true, showEdit: true, showSave: false, showSubmit: false
+        },
+        edit: {
+          title: sNumber || "Ticket",
+          subtitle: "Editing service request",
+          formEditable: true,
+          showBack: true, showEdit: false, showSave: true, showSubmit: false
+        }
+      };
+      this.getView().getModel("ui").setData(mModes[sMode]);
+    },
+
+    /* ---------------------------------------------------------
+     * Route: create — fresh draft each time.
+     * ------------------------------------------------------- */
+    _onCreateMatched: function () {
+      this.getView().getModel("attachments").setProperty("/list", []);
+      this._createDraftIncident();
+      this._setMode("create");
       this._setupCategories();
+      this._previewIncidentNumber();
+    },
+
+    /* ---------------------------------------------------------
+     * Route: detail — bind an existing ticket, read-only to start.
+     * ------------------------------------------------------- */
+    _onDetailMatched: function (oEvent) {
+      var that = this;
+      this.getView().getModel("attachments").setProperty("/list", []);
+      this._bindExistingIncident(oEvent.getParameter("arguments").id);
+      this._setMode("view");
+      // The number/title arrives with the record; refresh the header once loaded.
+      this._oIncidentContext.requestProperty("incidentNumber").then(function (sNo) {
+        that.getView().getModel("ui").setProperty("/title", sNo || "Ticket");
+      }).catch(function () { /* ignore */ });
+      this._setupCategories();
+    },
+
+    /* ---------------------------------------------------------
+     * Edit / Back
+     * ------------------------------------------------------- */
+    onEdit: function () {
+      this._setMode("edit");
+    },
+
+    onBack: function () {
+      this.getOwnerComponent().getRouter().navTo("list");
+    },
+
+    /* ---------------------------------------------------------
+     * Ask the backend for the next number and show it read-only.
+     * The backend re-assigns the authoritative value on save, so a
+     * stale preview can never cause a duplicate.
+     * ------------------------------------------------------- */
+    _previewIncidentNumber: function () {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+      var oCtx = oModel.bindContext("/nextIncidentNumber(...)");
+      oCtx.execute().then(function () {
+        var sNext = oCtx.getBoundContext().getProperty("value");
+        if (sNext && that._oIncidentContext) {
+          that._oIncidentContext.setProperty("incidentNumber", sNext);
+        }
+      }).catch(function () {
+        /* preview only — ignore, backend still assigns on save */
+      });
+    },
+
+    _bindExistingIncident: function (sId) {
+      var oModel = this.getOwnerComponent().getModel();
+      var oCtx = oModel.bindContext(
+        "/Incident(" + sId + ")",
+        null,
+        { $$updateGroupId: "incidentGroup" }
+      ).getBoundContext();
+      this._oIncidentContext = oCtx;
+      this.getView().setBindingContext(oCtx);
     },
 
     /* ---------------------------------------------------------
@@ -247,16 +352,19 @@ sap.ui.define([
         return;
       }
 
+      var bEditing = this._sMode === "edit";
+
       // Send the batch to the server
       oModel.submitBatch("incidentGroup").then(function () {
-        MessageToast.show("Incident saved");
+        // On CREATE the backend assigned the authoritative incident number.
+        var sNumber = that._oIncidentContext.getProperty("incidentNumber");
 
-        // After save the context is no longer transient — grab its key
-        // and upload any pending attachments.
-        return that._uploadPendingAttachments();
-      }).then(function () {
-        // Prepare a fresh draft for the next incident (optional)
-        // that._createDraftIncident();
+        // Link any pending attachments now that the incident has a key.
+        return that._uploadPendingAttachments().then(function () {
+          MessageToast.show("Ticket " + sNumber + (bEditing ? " updated successfully." : " created successfully."));
+          // Back to the list, which refreshes and shows the change.
+          that.getOwnerComponent().getRouter().navTo("list");
+        });
       }).catch(function (err) {
         MessageBox.error("Save failed: " + (err.message || err));
       });
