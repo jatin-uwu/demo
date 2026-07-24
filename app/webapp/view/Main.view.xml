@@ -206,7 +206,7 @@
             <List id="attachmentList" items="{path:'attachments>/list'}" class="sapUiSmallMarginTop" noDataText="No attachments queued">
               <StandardListItem title="{attachments>fileName}" description="{attachments>mimeType}" info="{attachments>fileSize} B"/>
             </List>
-          </VBox>
+          </VBox>`` 
         </VBox>
 
     </VBox>

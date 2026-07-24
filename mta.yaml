@@ -1,0 +1,88 @@
+_schema-version: "3.1"
+ID: FORM_demo
+version: 1.0.0
+description: ITSM Incident Management built with SAP CAP
+
+parameters:
+  enable-parallel-deployments: true
+
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+
+modules:
+  # ---------------------------------------------------------------
+  # 1. The CAP service (Node.js) — our OData API + business logic
+  # ---------------------------------------------------------------
+  - name: FORM_demo-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 1024M
+    build-parameters:
+      builder: npm-ci
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: FORM_demo-db
+      - name: FORM_demo-auth
+
+  # ---------------------------------------------------------------
+  # 2. The database deployer — creates HANA tables and loads CSVs,
+  #    then exits. It is a one-shot task, not a running app.
+  # ---------------------------------------------------------------
+  - name: FORM_demo-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm-ci
+    requires:
+      - name: FORM_demo-db
+
+  # ---------------------------------------------------------------
+  # 3. The approuter — the public entry point. Serves the UI5 app
+  #    and forwards /odata calls to the CAP service with the token.
+  # ---------------------------------------------------------------
+  - name: FORM_demo-approuter
+    type: nodejs
+    path: app
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 1024M
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: FORM_demo-auth
+
+resources:
+  # HANA HDI container — the schema our tables live in
+  - name: FORM_demo-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+
+  # XSUAA — authentication and authorisation
+  - name: FORM_demo-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        xsappname: form-demo-${org}-${space}
+        tenant-mode: dedicated

@@ -10,7 +10,7 @@
     <!-- breadcrumb + search -->
     <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom">
       <Breadcrumbs currentLocationText="Incidents">
-        <Link text="Vantara Industries"/>
+        <Link text="Ccentrik | Service Desk"/>
       </Breadcrumbs>
       <HBox alignItems="Center">
         <SearchField placeholder="Search Tickets, Assets,..." width="260px"/>
