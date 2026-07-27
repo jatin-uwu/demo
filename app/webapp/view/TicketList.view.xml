@@ -10,7 +10,7 @@
     <!-- breadcrumb + search -->
     <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom">
       <Breadcrumbs currentLocationText="Incidents">
-        <Link text="Ccentrik | Service Desk"/>
+        <Link text="Ccentrik | Service Desk" press=".onGoDashboard"/>
       </Breadcrumbs>
       <HBox alignItems="Center">
         <SearchField placeholder="Search Tickets, Assets,..." width="260px"/>
@@ -26,6 +26,7 @@
           <Text text="All Service Request Records" class="headerSub"/>
         </VBox>
         <HBox>
+          <Button text="Dashboard" icon="sap-icon://bbyd-dashboard" type="Transparent" class="sapUiTinyMarginEnd" press=".onGoDashboard"/>
           <Button text="Create New Ticket" icon="sap-icon://add" class="submitBtn" press=".onCreateTicket"/>
         </HBox>
       </HBox>

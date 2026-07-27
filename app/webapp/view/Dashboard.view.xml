@@ -1,0 +1,127 @@
+<mvc:View
+  controllerName="itsm.ui.controller.Dashboard"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:viz="sap.viz.ui5.controls"
+  xmlns:vizData="sap.viz.ui5.data"
+  xmlns:vizFeed="sap.viz.ui5.controls.common.feeds"
+  displayBlock="true">
+
+  <Page id="dashPage" showHeader="false" backgroundDesign="Transparent" class="appBg densePage">
+
+    <!-- ===== styled app header: logo (left) · title (center) · actions (right) ===== -->
+    <Bar class="appHeader">
+      <contentLeft>
+        <Image src="images/ccentrik.png" height="30px" densityAware="false" class="appLogo" press=".onGoDashboard"/>
+      </contentLeft>
+      <contentMiddle>
+        <Title text="Service Desk Dashboard" class="appHeaderTitle"/>
+      </contentMiddle>
+      <contentRight>
+        <Button text="Reset" icon="sap-icon://clear-filter" type="Transparent" press=".onResetFilters"/>
+        <Button text="View All Tickets" icon="sap-icon://list" type="Transparent" press=".onGoList"/>
+      </contentRight>
+    </Bar>
+
+    <!-- ===== KPI tiles: one line, equal flexible width ===== -->
+    <HBox class="tileRow" width="100%" items="{dash>/tiles}">
+      <GenericTile
+        header="{dash>label}"
+        frameType="OneByHalf"
+        width="100%"
+        state="Loaded"
+        press=".onTilePress"
+        class="kpiTile {= ${dash>selected} ? 'kpiSel' : '' }">
+        <layoutData>
+          <FlexItemData growFactor="1" baseSize="0"/>
+        </layoutData>
+        <TileContent>
+          <NumericContent value="{dash>count}" valueColor="{dash>color}" icon="{dash>icon}" withMargin="false"/>
+        </TileContent>
+      </GenericTile>
+    </HBox>
+
+    <!-- ===== split: table (left, wide) + chart (right, narrow) ===== -->
+    <HBox class="splitRow" wrap="Wrap" width="100%" alignItems="Stretch">
+
+      <!-- TABLE -->
+      <VBox class="tablePane">
+        <Table
+          id="dashTable"
+          inset="false"
+          growing="true"
+          growingThreshold="50"
+          sticky="ColumnHeaders,HeaderToolbar"
+          items="{
+            path: '/Incident',
+            parameters: {
+              $expand: 'status($select=name),priority($select=name),category1($select=name)',
+              $orderby: 'createdAt desc'
+            }
+          }"
+          noDataText="No tickets for this selection.">
+
+          <headerToolbar>
+            <OverflowToolbar style="Clear">
+              <Title text="{dash>/tableTitle}" level="H5"/>
+              <ToolbarSpacer/>
+              <SearchField width="16rem" placeholder="Search # or description" search=".onSearch" liveChange=".onSearch"/>
+              <Button text="New Ticket" icon="sap-icon://add" class="submitBtn" press=".onCreateTicket"/>
+            </OverflowToolbar>
+          </headerToolbar>
+
+          <columns>
+            <Column width="7rem"><Text text="Incident #"/></Column>
+            <Column><Text text="Short Description"/></Column>
+            <Column width="8rem"><Text text="Status"/></Column>
+            <Column width="8rem"><Text text="Priority"/></Column>
+            <Column width="8rem"><Text text="Category"/></Column>
+            <Column width="11rem"><Text text="Created On"/></Column>
+          </columns>
+
+          <items>
+            <ColumnListItem type="Navigation" press=".onTicketPress">
+              <cells>
+                <ObjectIdentifier title="{incidentNumber}"/>
+                <Text text="{shortDescription}"/>
+                <Text text="{status/name}"/>
+                <Text text="{priority/name}"/>
+                <Text text="{category1/name}"/>
+                <Text text="{ path: 'createdAt', formatter: '.formatDateTime' }"/>
+              </cells>
+            </ColumnListItem>
+          </items>
+        </Table>
+      </VBox>
+
+      <!-- CHART -->
+      <VBox class="chartPane">
+        <Text text="CATEGORY-WISE BREAKDOWN" class="sectionPill"/>
+        <viz:VizFrame
+          id="categoryChart"
+          vizType="donut"
+          width="100%"
+          height="300px"
+          uiConfig="{applicationSet:'fiori'}"
+          selectData=".onChartSelect">
+          <viz:dataset>
+            <vizData:FlattenedDataset data="{dash>/categoryData}">
+              <vizData:dimensions>
+                <vizData:DimensionDefinition name="Category" value="{dash>name}"/>
+              </vizData:dimensions>
+              <vizData:measures>
+                <vizData:MeasureDefinition name="Tickets" value="{dash>count}"/>
+              </vizData:measures>
+            </vizData:FlattenedDataset>
+          </viz:dataset>
+          <viz:feeds>
+            <vizFeed:FeedItem uid="size" type="Measure" values="Tickets"/>
+            <vizFeed:FeedItem uid="color" type="Dimension" values="Category"/>
+          </viz:feeds>
+        </viz:VizFrame>
+      </VBox>
+
+    </HBox>
+  </Page>
+</mvc:View>

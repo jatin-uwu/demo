@@ -32,6 +32,10 @@ sap.ui.define([
       this.getOwnerComponent().getRouter().navTo("create");
     },
 
+    onGoDashboard: function () {
+      this.getOwnerComponent().getRouter().navTo("dashboard");
+    },
+
     onTicketPress: function (oEvent) {
       // Works whether the event comes from the ColumnListItem (press) or the
       // Table (itemPress).
