@@ -48,13 +48,26 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
   margin-left: 16px !important;
   margin-right: 16px !important;
 }
-.appHeader { margin-top: 14px !important; }
+.appHeader {
+  margin-top: 14px !important;
+  background: #021a86 !important;
+  border-radius: 12px;
+  padding: 4px 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+.appHeaderTitle {
+  color: #fff !important;
+  font-weight: 700 !important;
+}
 
-/* navy header pe Reset / View All buttons ko white karo (warna blue = invisible) */
+/* navy header pe Reset / View All buttons ko white karo (warna navy-on-navy = invisible) */
 .appHeader .sapMBtnContent,
 .appHeader .sapUiIcon,
 .appHeader bdi {
-  color: #0a0096 !important;
+  color: #fff !important;
+}
+.appHeader .sapMBtn .sapMBtnInner {
+  border-color: rgba(255,255,255,.35) !important;
 }
 .appHeader .sapMBtn:hover .sapMBtnInner {
   background: rgba(255,255,255,.16) !important;
@@ -65,12 +78,13 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .tileRow {
   gap: 10px;
   align-items: stretch;
-  margin: 0 0 12px;
+  margin: 14px 0 12px;
 }
 .kpiTile {
   min-width: 0 !important;
   margin: 0 !important;
   border-radius: 12px;
+  border-left: 4px solid transparent;
   transition: box-shadow .15s ease, transform .15s ease;
 }
 .kpiTile:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,.08); }
@@ -81,6 +95,17 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
   outline-offset: -2px;
   border-radius: 12px;
 }
+
+/* Each KPI tile gets its own accent from the header's navy family (plus
+   green/red for done/attention states) so the row reads as 7 distinct
+   tiles at a glance instead of repeating 3 semantic colors. */
+.tileRow .kpiTile:nth-child(1) { border-left-color: #021a86; } /* Total */
+.tileRow .kpiTile:nth-child(2) { border-left-color: #1d4ed8; } /* New */
+.tileRow .kpiTile:nth-child(3) { border-left-color: #eda100; } /* In Process */
+.tileRow .kpiTile:nth-child(4) { border-left-color: #e34948; } /* Customer Action */
+.tileRow .kpiTile:nth-child(5) { border-left-color: #3b82f6; } /* Solution Proposed */
+.tileRow .kpiTile:nth-child(6) { border-left-color: #22c55e; } /* Confirmed */
+.tileRow .kpiTile:nth-child(7) { border-left-color: #15803d; } /* Closed */
 
 /* ---- table + chart share the row and fit the viewport ---- */
 .splitRow {
@@ -110,3 +135,24 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
 .chartPane .sectionPill { margin-bottom: 8px; }
+
+/* ---- table headings: bolder + a faint navy-family tint so they separate
+   clearly from the data rows ---- */
+.sapMListTblHeader,
+.sapMListTblHeader.sapMListTblRow {
+  background: #f1f4ff;
+}
+.sapMListTblHeaderCell,
+.sapMListTblHeaderCell .sapMText {
+  font-weight: 700 !important;
+  color: #1e2a5e;
+}
+
+/* ---- other pages: header card was eating too much vertical space for a
+   one-line title; shrink it to match the dashboard's dense feel ---- */
+.headerCard {
+  padding: 12px 18px;
+  margin-bottom: 10px;
+}
+.headerTitle { font-size: 19px; line-height: 1.25; }
+.headerSub { margin-top: 1px; }

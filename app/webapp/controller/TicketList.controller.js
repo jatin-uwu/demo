@@ -28,6 +28,30 @@ sap.ui.define([
       return isNaN(oDate.getTime()) ? "" : oDate.toLocaleString();
     },
 
+    // Status -> sap.ui.core.ValueState, so open/blocked tickets stand out
+    // (Customer Action in red) and closed ones read as done (green).
+    formatStatusState: function (sName) {
+      switch (sName) {
+        case "New": return "Information";
+        case "In Process": return "Warning";
+        case "Customer Action": return "Error";
+        case "Solution Proposed": return "Warning";
+        case "Confirmed": return "Success";
+        case "Closed": return "Success";
+        default: return "None";
+      }
+    },
+
+    // Priority -> sap.ui.core.ValueState, so P1/P2 (needs urgent attention)
+    // pop in red/amber against the rest of the row.
+    formatPriorityState: function (sName) {
+      if (!sName) { return "None"; }
+      if (sName.indexOf("P1") === 0) { return "Error"; }
+      if (sName.indexOf("P2") === 0) { return "Warning"; }
+      if (sName.indexOf("P3") === 0) { return "Information"; }
+      return "None";
+    },
+
     onCreateTicket: function () {
       this.getOwnerComponent().getRouter().navTo("create");
     },

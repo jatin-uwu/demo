@@ -85,8 +85,8 @@
               <cells>
                 <ObjectIdentifier title="{incidentNumber}"/>
                 <Text text="{shortDescription}"/>
-                <Text text="{status/name}"/>
-                <Text text="{priority/name}"/>
+                <ObjectStatus text="{status/name}" state="{path: 'status/name', formatter: '.formatStatusState'}"/>
+                <ObjectStatus text="{priority/name}" state="{path: 'priority/name', formatter: '.formatPriorityState'}"/>
                 <Text text="{category1/name}"/>
                 <Text text="{ path: 'createdAt', formatter: '.formatDateTime' }"/>
               </cells>

@@ -9,15 +9,24 @@ sap.ui.define([
   // The status tiles we want to show, in order. `code` matches the STATUS
   // LookupValue codes in the DB; `code: null` means "all tickets".
   // Colours use NumericContent value states: Good / Critical / Error / Neutral.
+  // Colours use NumericContent value states (Good/Critical/Error/Neutral).
+  // Each tile also gets a distinct left-border accent (see .tileRow rules in
+  // style.css, matched by tile position) so the row reads as 7 different
+  // tiles rather than 3 repeated colours; the accents stay in the app
+  // header's navy/blue family plus green (done) and red (needs attention).
   var STATUS_TILES = [
     { key: "ALL",               label: "Total",             code: null,                color: "Neutral",  icon: "sap-icon://sum" },
     { key: "NEW",               label: "New",               code: "NEW",               color: "Neutral",  icon: "sap-icon://create" },
     { key: "IN_PROCESS",        label: "In Process",        code: "IN_PROCESS",        color: "Critical", icon: "sap-icon://work-history" },
-    { key: "CUSTOMER_ACTION",   label: "Customer Action",   code: "CUSTOMER_ACTION",   color: "Critical", icon: "sap-icon://pending" },
+    { key: "CUSTOMER_ACTION",   label: "Customer Action",   code: "CUSTOMER_ACTION",   color: "Error",    icon: "sap-icon://pending" },
     { key: "SOLUTION_PROPOSED", label: "Solution Proposed", code: "SOLUTION_PROPOSED", color: "Neutral",  icon: "sap-icon://lightbulb" },
     { key: "CONFIRMED",         label: "Confirmed",         code: "CONFIRMED",         color: "Good",     icon: "sap-icon://accept" },
     { key: "CLOSED",            label: "Closed",            code: "CLOSED",            color: "Good",     icon: "sap-icon://sys-enter-2" }
   ];
+
+  // Category-wise donut: a lighter, standard categorical palette (blue,
+  // orange, aqua, yellow) instead of the darker default viz colours.
+  var CHART_PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#4a3aa7"];
 
   return Controller.extend("itsm.ui.controller.Dashboard", {
 
@@ -44,6 +53,11 @@ sap.ui.define([
       // patternMatched can fire before this handler is attached, so the
       // first paint would otherwise show zeros.
       this._loadCounts();
+
+      this.byId("categoryChart").setVizProperties({
+        plotArea: { colorPalette: CHART_PALETTE },
+        legend: { visible: true }
+      });
     },
 
     _onMatched: function () {
@@ -237,6 +251,30 @@ sap.ui.define([
       if (!sValue) { return ""; }
       var oDate = new Date(sValue);
       return isNaN(oDate.getTime()) ? "" : oDate.toLocaleString();
+    },
+
+    // Status -> sap.ui.core.ValueState, so open/blocked tickets stand out
+    // (Customer Action in red) and closed ones read as done (green).
+    formatStatusState: function (sName) {
+      switch (sName) {
+        case "New": return "Information";
+        case "In Process": return "Warning";
+        case "Customer Action": return "Error";
+        case "Solution Proposed": return "Warning";
+        case "Confirmed": return "Success";
+        case "Closed": return "Success";
+        default: return "None";
+      }
+    },
+
+    // Priority -> sap.ui.core.ValueState, so P1/P2 (needs urgent attention)
+    // pop in red/amber against the rest of the row.
+    formatPriorityState: function (sName) {
+      if (!sName) { return "None"; }
+      if (sName.indexOf("P1") === 0) { return "Error"; }
+      if (sName.indexOf("P2") === 0) { return "Warning"; }
+      if (sName.indexOf("P3") === 0) { return "Information"; }
+      return "None";
     }
 
   });
