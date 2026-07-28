@@ -323,7 +323,7 @@ sap.ui.define([
 
       // create() returns a transient context — nothing sent to server yet
       this._oIncidentContext = oListBinding.create({
-        status_ID: null,
+        status_ID: "a4000000-0000-4000-8000-000000000001",  // NEW (default status)
         impact_ID: null,
         urgency_ID: null,
         priority_ID: null,

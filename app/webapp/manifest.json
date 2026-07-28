@@ -28,16 +28,22 @@
     "dependencies": {
       "minUI5Version": "1.108.0",
       "libs": {
-        "sap.m": {},
-        "sap.ui.core": {},
-        "sap.ui.layout": {},
-        "sap.ui.unified": {}
-      }
+  "sap.m": {},
+  "sap.ui.core": {},
+  "sap.ui.layout": {},
+  "sap.ui.unified": {},
+  "sap.viz": {}
+}
     },
     "models": {
       "i18n": {
         "type": "sap.ui.model.resource.ResourceModel",
-        "settings": { "bundleName": "itsm.ui.i18n.i18n" }
+        
+        "settings": {
+  "bundleName": "itsm.ui.i18n.i18n",
+  "supportedLocales": [""],
+  "fallbackLocale": ""
+}
       },
       "": {
         "dataSource": "incidentService",
@@ -64,14 +70,16 @@
         "async": true
       },
       "routes": [
-        { "pattern": "", "name": "list", "target": "list" },
-        { "pattern": "create", "name": "create", "target": "main" },
-        { "pattern": "ticket/{id}", "name": "detail", "target": "main" }
-      ],
-      "targets": {
-        "list": { "viewName": "TicketList", "viewId": "list" },
-        "main": { "viewName": "Main", "viewId": "main" }
-      }
+  { "pattern": "", "name": "dashboard", "target": "dashboard" },
+  { "pattern": "tickets", "name": "list", "target": "list" },
+  { "pattern": "create", "name": "create", "target": "main" },
+  { "pattern": "ticket/{id}", "name": "detail", "target": "main" }
+],
+"targets": {
+  "dashboard": { "viewName": "Dashboard", "viewId": "dashboard" },
+  "list": { "viewName": "TicketList", "viewId": "list" },
+  "main": { "viewName": "Main", "viewId": "main" }
+}
     }
   }
 }
