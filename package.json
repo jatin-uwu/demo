@@ -1,27 +1,33 @@
 {
   "name": "FORM_demo",
   "version": "1.0.0",
+  "private": true,
   "dependencies": {
-    "@cap-js/hana": "^3",
-    "@sap/cds": "^9",
-    "@sap/xssec": "^4"
+    "@cap-js/postgres": "^3.0.1",
+    "@sap/cds": "^10.0.4",
+    "@sap/xssec": "^4.9.0",
+    "pg": "^8.16.3"
   },
   "devDependencies": {
-    "@cap-js/sqlite": "^2.4"
+    "@cap-js/sqlite": "^3.0.1"
   },
   "scripts": {
-    "start": "cds-serve"
+    "start": "cds-serve",
+    "watch": "cds watch"
   },
-  "private": true,
   "cds": {
     "requires": {
-      "[production]": {
-        "auth": "xsuaa",
-        "db": "hana"
+      "db": {
+        "kind": "postgres",
+        "pool": {
+          "min": 0,
+          "max": 10,
+          "acquireTimeoutMillis": 30000,
+          "createTimeoutMillis": 30000,
+          "destroyTimeoutMillis": 5000,
+          "idleTimeoutMillis": 30000
+        }
       }
-    },
-    "hana": {
-      "deploy-format": "hdbtable"
     }
   }
 }
