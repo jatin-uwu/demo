@@ -7,47 +7,45 @@
   xmlns:u="sap.ui.unified"
   displayBlock="true">
 
-  <Page id="page" showHeader="false" backgroundDesign="Transparent" class="appBg">
+  <Page id="page" showHeader="false" backgroundDesign="Transparent" class="appBg densePage">
 
-    <!-- breadcrumb + search -->
-    <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom">
-      <Breadcrumbs currentLocationText="Incidents">
-        <Link text="Ccentrik | Service Desk"/>
-      </Breadcrumbs>
-      <HBox alignItems="Center">
-        <SearchField placeholder="Search Tickets, Assets,..." width="260px"/>
-        <Button icon="sap-icon://menu2" type="Transparent"/>
-      </HBox>
-    </HBox>
-
-    <!-- header -->
-    <VBox class="headerCard">
-      <HBox justifyContent="SpaceBetween" alignItems="Center">
-        <HBox alignItems="Center">
-          <Button icon="sap-icon://nav-back" type="Transparent"
-                  tooltip="Back to list"
-                  visible="{ui>/showBack}"
-                  press=".onBack"
-                  class="sapUiTinyMarginEnd"/>
-          <VBox>
-            <Text text="{ui>/title}" class="headerTitle"/>
-            <Text text="{ui>/subtitle}" class="headerSub"/>
-          </VBox>
-        </HBox>
-        <HBox>
-          <Button text="Edit" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showEdit}" press=".onEdit"/>
-          <Button text="Save" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showSave}" press=".onSave"/>
-          <Button text="Submit" class="submitBtn" visible="{ui>/showSubmit}" press=".onSubmit"/>
-        </HBox>
-      </HBox>
+    <!-- ===== same styled app header as the dashboard: back button (left) · logo (click = home) · title (center) · actions (right) =====
+         sap.m.Bar is single-line only in this theme (its Left/Middle/Right
+         containers are height-locked); the subtitle lives just below it in
+         normal page flow instead of fighting the bar for vertical space. -->
+    <Bar class="appHeader">
+      <contentLeft>
+        <Button icon="sap-icon://nav-back" type="Transparent"
+                tooltip="Back to dashboard"
+                visible="{ui>/showBack}"
+                press=".onBack"
+                class="sapUiTinyMarginEnd"/>
+        <Image src="images/ccentrik.png" height="30px" densityAware="false" class="appLogo" press=".onGoDashboard"/>
+      </contentLeft>
+      <contentMiddle>
+        <Title text="Service Desk" class="appHeaderTitle"/>
+      </contentMiddle>
+      <contentRight>
+        <Button text="Edit" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showEdit}" press=".onEdit"/>
+        <Button text="Save" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showSave}" press=".onSave"/>
+        <Button text="Submit" class="submitBtn" visible="{ui>/showSubmit}" press=".onSubmit"/>
+      </contentRight>
+    </Bar>
+    <!-- Ticket id (or "New Ticket" before one's assigned) now lives here,
+         left-aligned below the header, since the header title itself is
+         the fixed app name across every page. -->
+    <VBox class="pageSubtitleBlock">
+      <Text text="{ui>/ticketLabel}" class="pageTicketId"/>
+      <Text text="{ui>/subtitle}" class="pageSubtitle"/>
     </VBox>
 
     <!-- Tabs act as in-page navigation: selecting one scrolls to its section. -->
-    <IconTabHeader id="tabs" mode="Inline" backgroundDesign="Transparent" select=".onTabSelect">
+    <IconTabHeader id="tabs" mode="Inline" backgroundDesign="Transparent" select=".onTabSelect" class="sapUiSmallMarginTop">
       <items>
         <IconTabFilter text="Details" key="details"/>
         <IconTabFilter text="Description" key="description"/>
         <IconTabFilter text="Attachments" key="attachments"/>
+        <IconTabFilter text="History" key="history"/>
       </items>
     </IconTabHeader>
 
@@ -56,8 +54,7 @@
         <!-- DETAILS -->
         <VBox id="secDetails">
 
-          <VBox class="sectionCard">
-            <Text text="REPORT DETAILS" class="sectionPill"/>
+          <Panel class="sectionCard" headerText="Report Details" expandable="true" expanded="true">
             <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="3" columnsXL="3">
 
               <Label text="Incident #"/>
@@ -70,34 +67,42 @@
               <Input value="{reportedBy}" placeholder="Mr. Raju"/>
 
               <Label text="Impact" required="true"/>
-              <Select selectedKey="{impact_ID}"
+              <Select selectedKey="{impact_ID}" enabled="{ui>/formEditable}"
                       items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
                 <core:Item key="{ID}" text="{name}"/>
               </Select>
 
               <Label text="Urgency" required="true"/>
-              <Select selectedKey="{urgency_ID}"
+              <Select selectedKey="{urgency_ID}" enabled="{ui>/formEditable}"
                       items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
                 <core:Item key="{ID}" text="{name}"/>
               </Select>
 
-              <Label text="Message Processor"/>
-              <Input value="{messageProcessor}" placeholder="Search for processor..."/>
+              <Label text="Assigned To"/>
+              <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/formEditable}"
+                      items="{ path: '/Agent', parameters: { $filter : &quot;active eq true&quot;, $orderby: 'name' } }">
+                <core:Item key="{name}" text="{name}"/>
+              </Select>
 
               <Label text="Support Team"/>
               <Input value="{supportTeam}"/>
 
               <Label text="Final Priority" required="true"/>
-              <Select selectedKey="{priority_ID}"
+              <Select selectedKey="{priority_ID}" enabled="{ui>/formEditable}"
                       items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
                 <core:Item key="{ID}" text="{name}"/>
               </Select>
 
               <Label text="Status"/>
-              <Select selectedKey="{status_ID}"
+              <Select selectedKey="{status_ID}" enabled="{ui>/formEditable}"
                       items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
                 <core:Item key="{ID}" text="{name}"/>
               </Select>
+
+              <Label text="SLA"/>
+              <ObjectStatus
+                text="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaText'}"
+                state="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaState'}"/>
 
             </f:SimpleForm>
 
@@ -105,10 +110,9 @@
             <TextArea rows="3" width="100%" editable="{ui>/formEditable}"
               value="{shortDescription}"
               placeholder="Provide the precise summary of the incident."/>
-          </VBox>
+          </Panel>
 
-          <VBox class="sectionCard">
-            <Text text="CATEGORY ASSIGNMENT" class="sectionPill"/>
+          <Panel class="sectionCard" headerText="Category Assignment" expandable="true" expanded="true">
             <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
 
               <!-- Cascading categories. Each level is filled by the controller
@@ -173,19 +177,18 @@
               </Select>
 
             </f:SimpleForm>
-          </VBox>
+          </Panel>
 
         </VBox>
 
         <!-- DESCRIPTION -->
         <VBox id="secDescription">
-          <VBox class="sectionCard">
-            <Text text="Description Details" class="sectionPill"/>
+          <Panel class="sectionCard" headerText="Description Details" expandable="true" expanded="true">
             <Label text="Full Description" required="true"/>
             <TextArea rows="10" width="100%" editable="{ui>/formEditable}"
               value="{description}"
               placeholder="Enter detailed technical notes and incident analysis..."/>
-          </VBox>
+          </Panel>
         </VBox>
 
         <!-- ATTACHMENTS -->
@@ -205,6 +208,28 @@
             <Text text="Maximum file size: 50MB. Supported: JPG, PNG, PDF, DOCX, XLSX" class="sapUiSmallMarginTop"/>
             <List id="attachmentList" items="{path:'attachments>/list'}" class="sapUiSmallMarginTop" noDataText="No attachments queued">
               <StandardListItem title="{attachments>fileName}" description="{attachments>mimeType}" info="{attachments>fileSize} B"/>
+            </List>
+          </VBox>
+        </VBox>
+
+        <!-- HISTORY -->
+        <VBox id="secHistory">
+          <VBox class="sectionCard">
+            <Text text="CHANGE HISTORY" class="sectionPill"/>
+            <List id="historyTimeline" items="{hist>/list}" showSeparators="None" class="timelineList" noDataText="No changes recorded yet.">
+              <CustomListItem>
+                <HBox class="timelineRow">
+                  <core:Icon src="{path: 'hist>changeType', formatter: '.formatHistoryIcon'}" class="timelineDot"/>
+                  <VBox class="timelineBody">
+                    <HBox justifyContent="SpaceBetween">
+                      <Text text="{path: 'hist>changeType', formatter: '.formatHistoryTitle'}" class="timelineTitle"/>
+                      <Text text="{path: 'hist>createdAt', formatter: '.formatDateTime'}" class="timelineDate"/>
+                    </HBox>
+                    <Text text="{parts: ['hist>changeType', 'hist>fieldLabel', 'hist>oldValue', 'hist>newValue'], formatter: '.formatHistoryText'}" class="timelineText"/>
+                    <Text text="{hist>createdBy}" class="timelineUser"/>
+                  </VBox>
+                </HBox>
+              </CustomListItem>
             </List>
           </VBox>
         </VBox>

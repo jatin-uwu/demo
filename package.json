@@ -15,15 +15,13 @@
     "start": "cds-serve",
     "watch": "cds watch"
   },
+  "private": true,
   "cds": {
     "requires": {
-      "db": {
-        "kind": "postgres",
-        "pool": {
-          "acquireTimeoutMillis": 30000,
-          "createTimeoutMillis": 30000,
-          "max": 10,
-          "min": 0
+      "[development]": {
+        "db": {
+          "kind": "sqlite",
+          "credentials": { "url": "db.sqlite" }
         }
       },
       "outbox": false

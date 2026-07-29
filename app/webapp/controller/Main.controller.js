@@ -14,6 +14,16 @@ sap.ui.define([
   var CAT_ROOT_TYPE = "CATEGORY1";
   var CAT_PAGE_SIZE = 500;
 
+  // SLA response/resolution windows per priority code, in hours. Matches
+  // (loosely) the descriptions in the PRIORITY lookup master data —
+  // P1 "Immediate", P2 "within 4 hours", P3 "1 business day", P4 "5 days".
+  var SLA_HOURS = {
+    P1: { response: 1,   resolution: 4 },
+    P2: { response: 4,   resolution: 24 },
+    P3: { response: 24,  resolution: 72 },
+    P4: { response: 120, resolution: 240 }
+  };
+
   return Controller.extend("itsm.ui.controller.Main", {
 
     /* ---------------------------------------------------------
@@ -22,6 +32,9 @@ sap.ui.define([
     onInit: function () {
       // Local model for pending attachments (before incident is saved)
       this.getView().setModel(new JSONModel({ list: [] }), "attachments");
+
+      // Change-history timeline (empty until an existing ticket is loaded).
+      this.getView().setModel(new JSONModel({ list: [] }), "hist");
 
       // Drives header buttons and form editability by mode.
       this.getView().setModel(new JSONModel({}), "ui");
@@ -37,7 +50,9 @@ sap.ui.define([
     /**
      * Switch the form between "create", "view" and "edit". Everything the
      * header and fields react to lives in the "ui" model, so the view stays
-     * declarative.
+     * declarative. The header title itself is a fixed app name (see the
+     * view); "ticketLabel" carries the ticket-specific id/placeholder that
+     * shows below it instead.
      */
     _setMode: function (sMode) {
       this._sMode = sMode;
@@ -47,25 +62,41 @@ sap.ui.define([
 
       var mModes = {
         create: {
-          title: "New Ticket",
+          ticketLabel: "New Ticket",
           subtitle: "Creating New Service Request Record",
           formEditable: true,
           showBack: true, showEdit: false, showSave: true, showSubmit: true
         },
         view: {
-          title: sNumber || "Ticket",
+          ticketLabel: sNumber || "Ticket",
           subtitle: "Viewing service request",
           formEditable: false,
           showBack: true, showEdit: true, showSave: false, showSubmit: false
         },
         edit: {
-          title: sNumber || "Ticket",
+          ticketLabel: sNumber || "Ticket",
           subtitle: "Editing service request",
           formEditable: true,
           showBack: true, showEdit: false, showSave: true, showSubmit: false
         }
       };
       this.getView().getModel("ui").setData(mModes[sMode]);
+      this._syncFormFade(mModes[sMode].formEditable);
+    },
+
+    /* ---------------------------------------------------------
+     * View mode: fields are already read-only, but fade the whole form
+     * too so it visibly reads as "look, don't touch" until Edit is
+     * pressed — full opacity/interactive again the moment it is.
+     * Binding a "class" directly (plain or expression syntax) silently
+     * fails to resolve in this UI5 build, so it's toggled here instead.
+     * ------------------------------------------------------- */
+    _syncFormFade: function (bEditable) {
+      var bFaded = !bEditable;
+      ["secDetails", "secDescription", "secAttachments"].forEach(function (sId) {
+        var oSection = this.byId(sId);
+        if (oSection) { oSection.toggleStyleClass("formFaded", bFaded); }
+      }, this);
     },
 
     /* ---------------------------------------------------------
@@ -73,10 +104,12 @@ sap.ui.define([
      * ------------------------------------------------------- */
     _onCreateMatched: function () {
       this.getView().getModel("attachments").setProperty("/list", []);
+      this.getView().getModel("hist").setProperty("/list", []);
       this._createDraftIncident();
       this._setMode("create");
       this._setupCategories();
       this._previewIncidentNumber();
+      this._scrollToTop();
     },
 
     /* ---------------------------------------------------------
@@ -84,14 +117,51 @@ sap.ui.define([
      * ------------------------------------------------------- */
     _onDetailMatched: function (oEvent) {
       var that = this;
+      var sId = oEvent.getParameter("arguments").id;
       this.getView().getModel("attachments").setProperty("/list", []);
-      this._bindExistingIncident(oEvent.getParameter("arguments").id);
+      this._bindExistingIncident(sId);
       this._setMode("view");
-      // The number/title arrives with the record; refresh the header once loaded.
+      // The number arrives with the record; refresh the ticket label once loaded.
       this._oIncidentContext.requestProperty("incidentNumber").then(function (sNo) {
-        that.getView().getModel("ui").setProperty("/title", sNo || "Ticket");
+        that.getView().getModel("ui").setProperty("/ticketLabel", sNo || "Ticket");
       }).catch(function () { /* ignore */ });
       this._setupCategories();
+      this._loadHistory(sId);
+      this._scrollToTop();
+    },
+
+    /* ---------------------------------------------------------
+     * The router moves focus into the new view for accessibility,
+     * which the browser answers by scrolling the focused control
+     * into view — clipping the header at the top of the page. Pin
+     * the scroll position back to the top on every navigation here.
+     * ------------------------------------------------------- */
+    _scrollToTop: function () {
+      var oPage = this.byId("page");
+      setTimeout(function () { oPage.scrollTo(0, 0, 0); }, 0);
+    },
+
+    /* ---------------------------------------------------------
+     * Change-history timeline — who changed what, and when.
+     * Populated from IncidentHistory rows the backend writes on
+     * every CREATE and on every field the backend detects changed.
+     * ------------------------------------------------------- */
+    _loadHistory: function (sId) {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+      var oBinding = oModel.bindList(
+        "/IncidentHistory",
+        null,
+        [new Sorter("createdAt", true)],
+        [new Filter("incident_ID", FilterOperator.EQ, sId)]
+      );
+
+      oBinding.requestContexts(0, 200).then(function (aContexts) {
+        var aList = aContexts.map(function (oCtx) { return oCtx.getObject(); });
+        that.getView().getModel("hist").setProperty("/list", aList);
+      }).catch(function () {
+        // History is supplementary — a failed load shouldn't block the page.
+      });
     },
 
     /* ---------------------------------------------------------
@@ -102,7 +172,11 @@ sap.ui.define([
     },
 
     onBack: function () {
-      this.getOwnerComponent().getRouter().navTo("list");
+      this.onGoDashboard();
+    },
+
+    onGoDashboard: function () {
+      this.getOwnerComponent().getRouter().navTo("dashboard");
     },
 
     /* ---------------------------------------------------------
@@ -143,7 +217,8 @@ sap.ui.define([
       var mSections = {
         details: "secDetails",
         description: "secDescription",
-        attachments: "secAttachments"
+        attachments: "secAttachments",
+        history: "secHistory"
       };
       var oSection = this.byId(mSections[oEvent.getParameter("key")]);
       if (oSection) {
@@ -362,8 +437,8 @@ sap.ui.define([
         // Link any pending attachments now that the incident has a key.
         return that._uploadPendingAttachments().then(function () {
           MessageToast.show("Ticket " + sNumber + (bEditing ? " updated successfully." : " created successfully."));
-          // Back to the list, which refreshes and shows the change.
-          that.getOwnerComponent().getRouter().navTo("list");
+          // Back to the dashboard, which refreshes and shows the change.
+          that.getOwnerComponent().getRouter().navTo("dashboard");
         });
       }).catch(function (err) {
         MessageBox.error("Save failed: " + (err.message || err));
@@ -451,6 +526,74 @@ sap.ui.define([
         oAttModel.setProperty("/list", []);
         MessageToast.show("Attachments linked");
       });
+    },
+
+    /* ---------------------------------------------------------
+     * History timeline formatters
+     * ------------------------------------------------------- */
+    formatHistoryIcon: function (sType) {
+      return sType === "CREATE" ? "sap-icon://add-document" : "sap-icon://edit";
+    },
+
+    formatHistoryTitle: function (sType) {
+      return sType === "CREATE" ? "Ticket Created" : "Ticket Updated";
+    },
+
+    formatHistoryText: function (sType, sLabel, sOld, sNew) {
+      if (sType === "CREATE") { return "Incident record was created."; }
+      if (!sOld) { return sLabel + ' set to "' + sNew + '".'; }
+      return sLabel + ' changed from "' + sOld + '" to "' + sNew + '".';
+    },
+
+    // OData v4 delivers timestamps as ISO strings; format them for display.
+    formatDateTime: function (sValue) {
+      if (!sValue) { return ""; }
+      var oDate = new Date(sValue);
+      return isNaN(oDate.getTime()) ? "" : oDate.toLocaleString();
+    },
+
+    /* ---------------------------------------------------------
+     * SLA badge — response clock runs from createdAt until
+     * firstResponseOn is stamped (ticket leaves New); resolution
+     * clock runs from createdAt until completedOn is stamped
+     * (Confirmed/Closed). Both stamped server-side, see service.js.
+     * ------------------------------------------------------- */
+    formatSlaState: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
+      return this._computeSla(sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn).state;
+    },
+
+    formatSlaText: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
+      return this._computeSla(sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn).text;
+    },
+
+    _computeSla: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
+      var oWindow = SLA_HOURS[sPriorityCode];
+      if (!oWindow || !sCreatedAt) { return { state: "None", text: "-" }; }
+
+      var HOUR = 3600000;
+      var iCreated = new Date(sCreatedAt).getTime();
+      var iNow = Date.now();
+
+      if (sCompletedOn) {
+        var iResolveBy = iCreated + oWindow.resolution * HOUR;
+        return new Date(sCompletedOn).getTime() <= iResolveBy
+          ? { state: "Success", text: "SLA Met" }
+          : { state: "Error", text: "SLA Breached" };
+      }
+
+      if (!sFirstResponseOn) {
+        var iResponseBy = iCreated + oWindow.response * HOUR;
+        var iLeft = iResponseBy - iNow;
+        if (iLeft < 0) { return { state: "Error", text: "Response Overdue" }; }
+        if (iLeft < oWindow.response * HOUR * 0.25) { return { state: "Warning", text: "Response Due Soon" }; }
+        return { state: "Success", text: "On Track" };
+      }
+
+      var iResolveBy2 = iCreated + oWindow.resolution * HOUR;
+      var iLeft2 = iResolveBy2 - iNow;
+      if (iLeft2 < 0) { return { state: "Error", text: "Resolution Overdue" }; }
+      if (iLeft2 < oWindow.resolution * HOUR * 0.25) { return { state: "Warning", text: "Due Soon" }; }
+      return { state: "Success", text: "On Track" };
     }
 
   });
