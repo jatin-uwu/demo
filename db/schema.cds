@@ -61,14 +61,49 @@ entity Incident : cuid, managed {
 /*=========================================
     Attachments
 =========================================*/
- 
+
 entity Attachment : cuid, managed {
- 
+
     incident        : Association to Incident;
- 
+
     fileName        : String(255);
     originalName    : String(255);
     mimeType        : String(100);
     fileSize        : Integer;
     storagePath     : String(500);
+}
+
+
+/*=========================================
+    Incident Change History
+    One row per created record and per changed
+    field on update. `createdBy` / `createdAt`
+    from `managed` double as "who" / "when".
+=========================================*/
+
+entity IncidentHistory : cuid, managed {
+
+    incident        : Association to Incident;
+
+    changeType      : String(20);       // CREATE, UPDATE
+    fieldLabel      : String(100);      // e.g. "Status" — null for CREATE
+    oldValue        : String(255);
+    newValue        : String(255);
+}
+
+
+/*=========================================
+    Agents
+    A picklist for "Assigned To" so the field
+    is chosen from a real list instead of free
+    text. Incident.messageProcessor stores the
+    chosen name as plain text (not a foreign
+    key) — deliberately, to keep this additive.
+=========================================*/
+
+entity Agent : cuid, managed {
+
+    name        : String(100);
+    email       : String(150);
+    active      : Boolean default true;
 }

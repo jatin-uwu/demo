@@ -71,13 +71,13 @@
       },
       "routes": [
   { "pattern": "", "name": "dashboard", "target": "dashboard" },
-  { "pattern": "tickets", "name": "list", "target": "list" },
+  { "pattern": "analytics", "name": "analytics", "target": "analytics" },
   { "pattern": "create", "name": "create", "target": "main" },
   { "pattern": "ticket/{id}", "name": "detail", "target": "main" }
 ],
 "targets": {
   "dashboard": { "viewName": "Dashboard", "viewId": "dashboard" },
-  "list": { "viewName": "TicketList", "viewId": "list" },
+  "analytics": { "viewName": "Analytics", "viewId": "analytics" },
   "main": { "viewName": "Main", "viewId": "main" }
 }
     }
