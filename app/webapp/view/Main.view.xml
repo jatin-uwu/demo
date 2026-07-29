@@ -5,6 +5,7 @@
   xmlns:core="sap.ui.core"
   xmlns:f="sap.ui.layout.form"
   xmlns:u="sap.ui.unified"
+  xmlns:upload="sap.m.upload"
   displayBlock="true">
 
   <Page id="page" showHeader="false" backgroundDesign="Transparent" class="appBg densePage">
@@ -54,64 +55,34 @@
         <!-- DETAILS -->
         <VBox id="secDetails">
 
-          <Panel class="sectionCard" headerText="Report Details" expandable="true" expanded="true">
-            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="3" columnsXL="3">
+          <!-- ===== 1. GENERAL DATA ===== -->
+          <Panel class="sectionCard" headerText="General Data" expandable="true" expanded="true">
+            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
 
-              <Label text="Incident #"/>
+              <Label text="ID"/>
               <Input value="{incidentNumber}" editable="false" placeholder="Auto-generated"/>
-
-              <Label text="User ID"/>
-              <Input value="{userId}"/>
 
               <Label text="Reported By"/>
               <Input value="{reportedBy}" placeholder="Mr. Raju"/>
 
-              <Label text="Impact" required="true"/>
-              <Select selectedKey="{impact_ID}" enabled="{ui>/formEditable}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </Select>
+              <Label text="Support Team"/>
+              <Input value="{supportTeam}" showValueHelp="true"/>
 
-              <Label text="Urgency" required="true"/>
-              <Select selectedKey="{urgency_ID}" enabled="{ui>/formEditable}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </Select>
-
-              <Label text="Assigned To"/>
+              <Label text="Message Processor"/>
               <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/formEditable}"
                       items="{ path: '/Agent', parameters: { $filter : &quot;active eq true&quot;, $orderby: 'name' } }">
                 <core:Item key="{name}" text="{name}"/>
               </Select>
 
-              <Label text="Support Team"/>
-              <Input value="{supportTeam}"/>
-
-              <Label text="Final Priority" required="true"/>
-              <Select selectedKey="{priority_ID}" enabled="{ui>/formEditable}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </Select>
-
-              <Label text="Status"/>
-              <Select selectedKey="{status_ID}" enabled="{ui>/formEditable}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </Select>
-
-              <Label text="SLA"/>
-              <ObjectStatus
-                text="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaText'}"
-                state="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaState'}"/>
-
             </f:SimpleForm>
 
-            <Label text="Short Description" required="true" class="sapUiSmallMarginTop"/>
+            <Label text="Description" required="true" class="sapUiSmallMarginTop"/>
             <TextArea rows="3" width="100%" editable="{ui>/formEditable}"
               value="{shortDescription}"
               placeholder="Provide the precise summary of the incident."/>
           </Panel>
 
+          <!-- ===== 2. CATEGORY (existing implementation, unchanged) ===== -->
           <Panel class="sectionCard" headerText="Category Assignment" expandable="true" expanded="true">
             <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
 
@@ -179,37 +150,115 @@
             </f:SimpleForm>
           </Panel>
 
+          <!-- ===== 3. PROCESSING DATA ===== -->
+          <Panel class="sectionCard" headerText="Processing Data" expandable="true" expanded="true">
+            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+
+              <Label text="Status"/>
+              <ComboBox selectedKey="{status_ID}" enabled="{ui>/formEditable}"
+                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </ComboBox>
+
+              <Label text="Impact" required="true"/>
+              <ComboBox selectedKey="{impact_ID}" enabled="{ui>/formEditable}"
+                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </ComboBox>
+
+              <Label text="Urgency" required="true"/>
+              <ComboBox selectedKey="{urgency_ID}" enabled="{ui>/formEditable}"
+                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </ComboBox>
+
+              <Label text="Recommended Priority"/>
+              <Input value="{recommendedPriority}" editable="false" placeholder="Auto-suggested"/>
+
+              <Label text="Priority" required="true"/>
+              <ComboBox selectedKey="{priority_ID}" enabled="{ui>/formEditable}"
+                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{ID}" text="{name}"/>
+              </ComboBox>
+
+              <Label text="SLA"/>
+              <ObjectStatus
+                text="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaText'}"
+                state="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaState'}"/>
+
+            </f:SimpleForm>
+          </Panel>
+
+          <!-- ===== 4. DATES ===== -->
+          <Panel class="sectionCard" headerText="Dates" expandable="true" expanded="true">
+            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+
+              <Label text="Created"/>
+              <Input value="{path: 'createdAt', formatter: '.formatDateTime'}" editable="false"/>
+
+              <Label text="First Response By"/>
+              <DateTimePicker editable="{ui>/formEditable}"
+                value="{path: 'firstResponseOn', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
+
+              <Label text="Due By"/>
+              <DateTimePicker editable="{ui>/formEditable}"
+                value="{path: 'completedOn', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
+
+            </f:SimpleForm>
+          </Panel>
+
+          <!-- ===== 5. RELATIONSHIPS ===== -->
+          <Panel class="sectionCard" headerText="Relationships" expandable="true" expanded="true">
+            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+
+              <Label text="Related Request for Change"/>
+              <Input value="{relatedChangeRequest}" showValueHelp="true"/>
+
+              <Label text="Configuration Item"/>
+              <Input value="{configurationItem}" showValueHelp="true"/>
+
+            </f:SimpleForm>
+          </Panel>
+
         </VBox>
 
-        <!-- DESCRIPTION -->
+        <!-- ===== 6. DESCRIPTION ===== -->
         <VBox id="secDescription">
-          <Panel class="sectionCard" headerText="Description Details" expandable="true" expanded="true">
+          <Panel class="sectionCard" headerText="Description" expandable="true" expanded="true">
             <Label text="Full Description" required="true"/>
             <TextArea rows="10" width="100%" editable="{ui>/formEditable}"
+              growing="true" growingMaxLines="25"
               value="{description}"
               placeholder="Enter detailed technical notes and incident analysis..."/>
           </Panel>
         </VBox>
 
-        <!-- ATTACHMENTS -->
+        <!-- ===== 7. ATTACHMENTS ===== -->
         <VBox id="secAttachments">
-          <VBox class="uploadCard">
-            <core:Icon src="sap-icon://upload" size="1.75rem" color="#16a34a" class="sapUiTinyMarginBottom"/>
-            <Title text="Upload Attachments" level="H4"/>
-            <Text text="Select files to attach after the incident is saved" class="sapUiSmallMarginBottom"/>
-            <u:FileUploader
-              id="fileUploader"
-              buttonOnly="true"
-              buttonText="Browse Files"
-              multiple="true"
-              enabled="{ui>/formEditable}"
-              change=".onFileSelected"
-              style="Emphasized"/>
+          <Panel class="sectionCard" headerText="Attachments" expandable="true" expanded="true">
+            <upload:UploadSet
+              id="attachmentUploadSet"
+              instantUpload="false"
+              uploadEnabled="{ui>/formEditable}"
+              terminationEnabled="true"
+              showIcons="true"
+              items="{attachments>/list}"
+              afterItemAdded=".onAttachmentAdded"
+              removePressed=".onAttachmentRemove"
+              openPressed=".onAttachmentDownload"
+              noDataText="No attachments queued"
+              noDataDescription="Drag files here or use Upload to attach them.">
+              <upload:items>
+                <upload:UploadSetItem
+                  fileName="{attachments>fileName}"
+                  mediaType="{attachments>mimeType}"
+                  visibleEdit="false"
+                  visibleRemove="{ui>/formEditable}"
+                  enabledRemove="{ui>/formEditable}"/>
+              </upload:items>
+            </upload:UploadSet>
             <Text text="Maximum file size: 50MB. Supported: JPG, PNG, PDF, DOCX, XLSX" class="sapUiSmallMarginTop"/>
-            <List id="attachmentList" items="{path:'attachments>/list'}" class="sapUiSmallMarginTop" noDataText="No attachments queued">
-              <StandardListItem title="{attachments>fileName}" description="{attachments>mimeType}" info="{attachments>fileSize} B"/>
-            </List>
-          </VBox>
+          </Panel>
         </VBox>
 
         <!-- HISTORY -->
