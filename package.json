@@ -16,23 +16,17 @@
     "watch": "cds watch"
   },
   "cds": {
-  "requires": {
-    "db": {
-      "kind": "postgres",
-      "impl": "@cap-js/postgres",
-      "pool": {
-        "acquireTimeoutMillis": 30000,
-        "createTimeoutMillis": 30000,
-        "max": 10,
-        "min": 0
-      },
-      "credentials": {
-        "ssl": {
-          "rejectUnauthorized": true
+    "requires": {
+      "db": {
+        "kind": "postgres",
+        "pool": {
+          "acquireTimeoutMillis": 30000,
+          "createTimeoutMillis": 30000,
+          "max": 10,
+          "min": 0
         }
-      }
-    },
-    "outbox": false
+      },
+      "outbox": false
+    }
   }
-}
 }
