@@ -2,10 +2,19 @@
   "xsappname": "form-demo",
   "tenant-mode": "dedicated",
   "description": "Security profile for the ITSM Incident Management application",
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "https://*.cfapps.us10-001.hana.ondemand.com/**"
+    ]
+  },
   "scopes": [
     {
       "name": "$XSAPPNAME.Agent",
       "description": "Create and process incidents"
+    },
+    {
+      "name": "$XSAPPNAME.ServiceGroup",
+      "description": "See every incident in the system and assign them to engineers"
     },
     {
       "name": "$XSAPPNAME.Admin",
@@ -23,10 +32,20 @@
       "attribute-references": []
     },
     {
+      "name": "ServiceGroup",
+      "description": "Service group dispatcher",
+      "scope-references": [
+        "$XSAPPNAME.Agent",
+        "$XSAPPNAME.ServiceGroup"
+      ],
+      "attribute-references": []
+    },
+    {
       "name": "Admin",
       "description": "Application administrator",
       "scope-references": [
         "$XSAPPNAME.Agent",
+        "$XSAPPNAME.ServiceGroup",
         "$XSAPPNAME.Admin"
       ],
       "attribute-references": []
@@ -38,6 +57,13 @@
       "description": "Service desk agent",
       "role-template-references": [
         "$XSAPPNAME.Agent"
+      ]
+    },
+    {
+      "name": "IncidentServiceGroup",
+      "description": "Service group dispatcher",
+      "role-template-references": [
+        "$XSAPPNAME.ServiceGroup"
       ]
     },
     {

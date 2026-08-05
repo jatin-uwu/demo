@@ -4,18 +4,28 @@ sap.ui.define([
   "sap/ui/model/Filter",
   "sap/ui/model/FilterOperator",
   "sap/ui/model/Sorter",
-  "sap/m/MessageToast"
-], function (Controller, JSONModel, Filter, FilterOperator, Sorter, MessageToast) {
+  "sap/m/MessageToast",
+  "sap/m/MessageBox"
+], function (Controller, JSONModel, Filter, FilterOperator, Sorter, MessageToast, MessageBox) {
   "use strict";
 
-  // The full pool of KPI tiles a user can choose from — always exactly 7
+  // Plain status codes now (not LookupValue associations), see db/schema.cds.
+  // submitTicket() (service.cds) is the only door out of Draft.
+  var STATUS_DRAFT = "DRAFT";
+
+  // Fields required to submit a ticket out of Draft — same list Main.controller.js
+  // checks on a single-ticket Submit. impact/urgency/description moved onto
+  // incidentForm in the new schema.
+  var SUBMIT_REQUIRED_FIELDS = ["shortDescription", "priority", "incidentForm/impact", "incidentForm/urgency", "incidentForm/description"];
+
+  // The full pool of KPI tiles a user can choose from — always exactly 6
   // shown at a time (see DEFAULT_TILE_KEYS / onManageTiles). Three flavors:
   //  - "status": code is a STATUS lookup code (null = every ticket)
   //  - "priority": code is a PRIORITY lookup code (P1-P4)
   //  - "metric": code names a value computed in _loadCounts (not a lookup)
   // Colours use NumericContent value states: Good / Critical / Error / Neutral.
   // Each tile also gets a distinct left-border accent (see .tileRow rules in
-  // style.css, matched by tile position) so the row reads as 7 different
+  // style.css, matched by tile position) so the row reads as 6 different
   // tiles rather than repeated colours.
   var ALL_TILES = [
     { key: "ALL",               label: "Total",             type: "status",   code: null,                color: "Neutral",  icon: "sap-icon://sum" },
@@ -34,8 +44,8 @@ sap.ui.define([
     { key: "UNASSIGNED",        label: "Unassigned",        type: "metric",   code: "unassigned",        color: "Critical", icon: "sap-icon://employee" }
   ];
 
-  var DEFAULT_TILE_KEYS = ["ALL", "NEW", "IN_PROCESS", "CUSTOMER_ACTION", "SOLUTION_PROPOSED", "CONFIRMED", "CLOSED"];
-  var TILE_COUNT = 7;
+  var DEFAULT_TILE_KEYS = ["ALL", "NEW", "IN_PROCESS", "CUSTOMER_ACTION", "SOLUTION_PROPOSED", "CONFIRMED"];
+  var TILE_COUNT = 6;
   var TILE_PREF_KEY = "itsm.dashboard.tileKeys";
 
   // Same "pick from a pool" idea as the KPI tiles, applied to the table
@@ -110,6 +120,22 @@ sap.ui.define([
       // columns (see FILTER_POOL / COLUMN_POOL above).
       this.getView().setModel(new JSONModel(this._buildColsVisibility()), "cols");
 
+      // Drives the "More" menu button's enabled state and the
+      // ServiceGroup-only "Assign Selected" item's visibility.
+      this.getView().setModel(new JSONModel({ hasSelection: false, isServiceGroup: false }), "sel");
+      this._loadCurrentUser();
+
+      // code -> name maps for the plain-string fields (status/priority/
+      // impact/urgency/category1/messageProcessor), used by table cell
+      // formatters below. Populated once here, best-effort.
+      this._mStatusName = {};
+      this._mPriorityName = {};
+      this._mImpactName = {};
+      this._mUrgencyName = {};
+      this._mCategoryName = {};
+      this._mUserNames = {};
+      this._loadLookupMaps();
+
       // Currently active filters. Category lives on the categoryFilter
       // Select itself (its selectedKey) rather than a separate variable,
       // since both the donut and the categoryFilter dropdown drive it.
@@ -140,8 +166,61 @@ sap.ui.define([
     },
 
     /* ---------------------------------------------------------
-     * Which 7 tiles to show — persisted in localStorage so the choice
-     * survives a reload. Falls back to the original 7 (and repairs a
+     * code -> name lookups for the table's plain-string columns.
+     * Best-effort, same pattern as Main.controller.js's formatUserName.
+     * ------------------------------------------------------- */
+    _loadLookupMaps: function () {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+
+      function loadType(sType, oTarget) {
+        var oBinding = oModel.bindList("/LookupValues", null, [], [
+          new Filter("lookupType", FilterOperator.EQ, sType)
+        ]);
+        return oBinding.requestContexts(0, 999).then(function (aCtx) {
+          aCtx.forEach(function (c) { oTarget[c.getProperty("code")] = c.getProperty("name"); });
+        });
+      }
+
+      Promise.all([
+        loadType("STATUS", this._mStatusName),
+        loadType("PRIORITY", this._mPriorityName),
+        loadType("IMPACT", this._mImpactName),
+        loadType("URGENCY", this._mUrgencyName),
+        loadType("CATEGORY1", this._mCategoryName)
+      ]).catch(function () { /* best-effort */ });
+
+      var oUserBinding = oModel.bindList("/Users");
+      oUserBinding.requestContexts(0, 999).then(function (aCtx) {
+        aCtx.forEach(function (c) { that._mUserNames[c.getProperty("userId")] = c.getProperty("name"); });
+      }).catch(function () { /* best-effort */ });
+    },
+
+    formatStatusName: function (sCode) { return this._mStatusName[sCode] || sCode || ""; },
+    formatPriorityName: function (sCode) { return this._mPriorityName[sCode] || sCode || ""; },
+    formatImpactName: function (sCode) { return this._mImpactName[sCode] || sCode || ""; },
+    formatUrgencyName: function (sCode) { return this._mUrgencyName[sCode] || sCode || ""; },
+    formatCategoryName: function (sCode) { return this._mCategoryName[sCode] || sCode || ""; },
+    formatUserName: function (sUserId) { return sUserId ? (this._mUserNames[sUserId] || sUserId) : ""; },
+
+    /* ---------------------------------------------------------
+     * Who's logged in — drives the "Assign Selected" bulk action's
+     * visibility (ServiceGroup/Admin only, see service.cds assignTickets).
+     * ------------------------------------------------------- */
+    _loadCurrentUser: function () {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+      var oAction = oModel.bindContext("/currentUser(...)");
+      oAction.execute().then(function () {
+        var oCtx = oAction.getBoundContext();
+        that.getView().getModel("sel").setProperty("/isServiceGroup",
+          !!(oCtx.getProperty("isServiceGroup") || oCtx.getProperty("isAdmin")));
+      }).catch(function () { /* best-effort — action stays hidden */ });
+    },
+
+    /* ---------------------------------------------------------
+     * Which 6 tiles to show — persisted in localStorage so the choice
+     * survives a reload. Falls back to the original 6 (and repairs a
      * stored list that's grown stale, e.g. from an older tile set).
      * ------------------------------------------------------- */
     _loadTileKeyPref: function () {
@@ -282,49 +361,23 @@ sap.ui.define([
      * Pull every incident once (only the fields we need) and compute
      * every tile count (status, priority, and SLA-derived metrics) plus
      * the category breakdown from it. One request instead of one-per-tile.
+     * status/priority are plain codes now — no more Lookup-ID indirection
+     * needed to get from the ticket row to a code, unlike before.
      * ------------------------------------------------------- */
     _loadCounts: function () {
       var that = this;
       var oModel = this.getOwnerComponent().getModel();
 
-      // Read only flat, primitive fields — no nested navigation access
-      // (getProperty("status/code") on an expand is not reliable in v4).
-      // We map the foreign keys to codes/names via the Lookup entity instead.
-      var oStatusB = oModel.bindList("/Lookup", null, [], [
-        new Filter("lookupType", FilterOperator.EQ, "STATUS")
-      ], { $select: "ID,code" });
-
-      var oPriB = oModel.bindList("/Lookup", null, [], [
-        new Filter("lookupType", FilterOperator.EQ, "PRIORITY")
-      ], { $select: "ID,code" });
-
-      var oCatB = oModel.bindList("/Lookup", null, [], [
-        new Filter("lookupType", FilterOperator.EQ, "CATEGORY1")
-      ], { $select: "ID,name" });
-
-      var oIncB = oModel.bindList("/Incident", null, [], [], {
-        $select: "ID,status_ID,priority_ID,category1_ID,messageProcessor,createdAt,firstResponseOn,completedOn"
+      var oIncB = oModel.bindList("/Tickets", null, [], [], {
+        $select: "ticketID,status,priority,messageProcessor,createdAt,firstResponseAt,completedAt",
+        $expand: "incidentForm($select=category1)"
       });
 
-      Promise.all([
-        oStatusB.requestContexts(0, 999),
-        oPriB.requestContexts(0, 999),
-        oCatB.requestContexts(0, 999),
-        oIncB.requestContexts(0, 9999)
-      ]).then(function (aRes) {
-        // id -> code / name maps
-        var mStatusCode = {};
-        aRes[0].forEach(function (c) { mStatusCode[c.getProperty("ID")] = c.getProperty("code"); });
-        var mPriCode = {};
-        aRes[1].forEach(function (c) { mPriCode[c.getProperty("ID")] = c.getProperty("code"); });
-        var mCatName = {};
-        aRes[2].forEach(function (c) { mCatName[c.getProperty("ID")] = c.getProperty("name"); });
-
+      oIncB.requestContexts(0, 9999).then(function (aInc) {
         var mStatusCount = {};   // code -> count
         var mPriorityCount = {}; // code -> count
-        var mCatCount = {};      // category name -> count
+        var mCatCount = {};      // category code -> count
         var iBreached = 0, iAtRisk = 0, iUnassigned = 0;
-        var aInc = aRes[3];
         var iTotal = aInc.length;
 
         // "Vs last week" per tile — this-week/last-week counts of tickets
@@ -355,30 +408,27 @@ sap.ui.define([
           var sBucket = weekBucket(sCreated);
           bump(mStatusWeek, "ALL", sBucket);
 
-          var sStatusId = oCtx.getProperty("status_ID");
-          var sStatusCode = sStatusId && mStatusCode[sStatusId];
+          var sStatusCode = oCtx.getProperty("status");
           if (sStatusCode) {
             mStatusCount[sStatusCode] = (mStatusCount[sStatusCode] || 0) + 1;
             bump(mStatusWeek, sStatusCode, sBucket);
           }
 
-          var sCatId = oCtx.getProperty("category1_ID");
-          var sName = sCatId && mCatName[sCatId];
-          if (sName) { mCatCount[sName] = (mCatCount[sName] || 0) + 1; }
+          var sCatCode = oCtx.getProperty("incidentForm/category1");
+          if (sCatCode) { mCatCount[sCatCode] = (mCatCount[sCatCode] || 0) + 1; }
 
           if (!oCtx.getProperty("messageProcessor")) {
             iUnassigned++;
             bump(mMetricWeek, "unassigned", sBucket);
           }
 
-          var sPriId = oCtx.getProperty("priority_ID");
-          var sPriCode = sPriId && mPriCode[sPriId];
+          var sPriCode = oCtx.getProperty("priority");
           if (sPriCode) {
             mPriorityCount[sPriCode] = (mPriorityCount[sPriCode] || 0) + 1;
             bump(mPriorityWeek, sPriCode, sBucket);
 
-            var sCompleted = oCtx.getProperty("completedOn");
-            var oResult = that._computeSla(sPriCode, sCreated, oCtx.getProperty("firstResponseOn"), sCompleted);
+            var sCompleted = oCtx.getProperty("completedAt");
+            var oResult = that._computeSla(sPriCode, sCreated, oCtx.getProperty("firstResponseAt"), sCompleted);
             if (oResult.state === "Error") {
               iBreached++;
               bump(mMetricWeek, "breached", sBucket);
@@ -388,10 +438,6 @@ sap.ui.define([
             }
           }
         });
-
-        // Diagnostic — remove once verified. Shows in the browser console.
-        // eslint-disable-next-line no-console
-        console.log("[Dashboard] incidents:", iTotal, "byStatus:", mStatusCount, "byCategory:", mCatCount);
 
         var mMetric = { breached: iBreached, atRisk: iAtRisk, unassigned: iUnassigned };
 
@@ -423,11 +469,19 @@ sap.ui.define([
         // and the color key beside it, so each row can show its share as a
         // progress bar. Sort order here must match: VizFrame assigns donut
         // slice colors to dimension values in this same array order.
+        // Each row keeps its own code (for filtering) alongside the
+        // resolved display name (for the chart/labels) — see onChartSelect.
         var iCatTotal = Object.keys(mCatCount).reduce(function (s, k) { return s + mCatCount[k]; }, 0) || 1;
-        var aCatData = Object.keys(mCatCount).map(function (sName) {
-          var iCount = mCatCount[sName];
-          return { name: sName, count: iCount, percent: Math.round((iCount / iCatTotal) * 100) };
+        var aCatData = Object.keys(mCatCount).map(function (sCode) {
+          var iCount = mCatCount[sCode];
+          return {
+            code: sCode,
+            name: that._mCategoryName[sCode] || sCode,
+            count: iCount,
+            percent: Math.round((iCount / iCatTotal) * 100)
+          };
         }).sort(function (a, b) { return b.count - a.count; });
+        that._aLastCatData = aCatData;
         oDash.setProperty("/categoryData", aCatData);
         that._syncCategoryKeyClasses();
       }).catch(function (oErr) {
@@ -488,27 +542,34 @@ sap.ui.define([
 
     /* ---------------------------------------------------------
      * Chart segment click -> adds a category filter (combined
-     * with whatever status tile is active).
+     * with whatever status tile is active). The chart's dimension value
+     * is the resolved category *name* (nicer labels/tooltips); the filter
+     * itself needs the *code* (incidentForm.category1) — looked up from
+     * the same row _loadCounts cached.
      * ------------------------------------------------------- */
     onChartSelect: function (oEvent) {
       var aData = oEvent.getParameter("data");
       if (aData && aData.length && aData[0].data) {
-        this.byId("categoryFilter").setSelectedKey(aData[0].data.Category);
+        var sName = aData[0].data.Category;
+        var oRow = (this._aLastCatData || []).filter(function (r) { return r.name === sName; })[0];
+        this.byId("categoryFilter").setSelectedKey(oRow ? oRow.code : "");
         this._applyFilters();
       }
     },
 
     /* ---------------------------------------------------------
-     * Collapse/expand the chart card — slides it shut to the right,
-     * handing its width back to the table pane next to it.
+     * Expand/restore the table — hides the chart card entirely
+     * (rather than leaving a collapsed strip with its own button)
+     * and hands its width back to the table pane next to it. The
+     * toggle button lives on the table's toolbar.
      * ------------------------------------------------------- */
-    onToggleChart: function () {
+    onToggleTableExpand: function () {
       this._bChartCollapsed = !this._bChartCollapsed;
       this.byId("chartPane").toggleStyleClass("chartCollapsed", this._bChartCollapsed);
 
-      var oBtn = this.byId("chartToggleBtn");
-      oBtn.setIcon(this._bChartCollapsed ? "sap-icon://slim-arrow-left" : "sap-icon://slim-arrow-right");
-      oBtn.setTooltip(this._bChartCollapsed ? "Expand chart" : "Collapse chart");
+      var oBtn = this.byId("tableExpandBtn");
+      oBtn.setIcon(this._bChartCollapsed ? "sap-icon://exit-full-screen" : "sap-icon://full-screen");
+      oBtn.setTooltip(this._bChartCollapsed ? "Restore chart" : "Expand table");
     },
 
     // Category/priority/assignee/search/unassigned all reset together —
@@ -555,7 +616,7 @@ sap.ui.define([
       var oModel = this.getOwnerComponent().getModel();
 
       function load(sType, sAllLabel) {
-        var oBinding = oModel.bindList("/Lookup", null, [new Sorter("sequence")], [
+        var oBinding = oModel.bindList("/LookupValues", null, [new Sorter("sequence")], [
           new Filter("lookupType", FilterOperator.EQ, sType)
         ]);
         return oBinding.requestContexts(0, 50).then(function (aCtx) {
@@ -567,25 +628,12 @@ sap.ui.define([
         });
       }
 
-      // Categories are filtered by name (category1/name), not a code — see
-      // _applyFilters and the donut/analytics tiles, which use the same key.
-      function loadCategories(sAllLabel) {
-        var oBinding = oModel.bindList("/Lookup", null, [new Sorter("sequence")], [
-          new Filter("lookupType", FilterOperator.EQ, "CATEGORY1")
+      function loadUsers(sAllLabel) {
+        var oBinding = oModel.bindList("/Users", null, [new Sorter("name")], [
+          new Filter("isActive", FilterOperator.EQ, true)
         ]);
         return oBinding.requestContexts(0, 100).then(function (aCtx) {
-          var aItems = aCtx.map(function (c) { return { code: c.getProperty("name"), name: c.getProperty("name") }; });
-          aItems.unshift({ code: "", name: sAllLabel });
-          return aItems;
-        });
-      }
-
-      function loadAgents(sAllLabel) {
-        var oBinding = oModel.bindList("/Agent", null, [new Sorter("name")], [
-          new Filter("active", FilterOperator.EQ, true)
-        ]);
-        return oBinding.requestContexts(0, 100).then(function (aCtx) {
-          var aItems = aCtx.map(function (c) { return { code: c.getProperty("name"), name: c.getProperty("name") }; });
+          var aItems = aCtx.map(function (c) { return { code: c.getProperty("userId"), name: c.getProperty("name") }; });
           aItems.unshift({ code: "", name: sAllLabel });
           return aItems;
         });
@@ -594,8 +642,8 @@ sap.ui.define([
       var that = this;
       Promise.all([
         load("PRIORITY", "All Priorities"),
-        loadCategories("All Categories"),
-        loadAgents("All Assignees"),
+        load("CATEGORY1", "All Categories"),
+        loadUsers("All Assignees"),
         load("STATUS", "All Statuses"),
         load("IMPACT", "All Impacts"),
         load("URGENCY", "All Urgencies")
@@ -631,28 +679,31 @@ sap.ui.define([
      * currently selected pool (see FILTER_POOL / onManageTableSettings) —
      * a hidden Select always reports an empty key anyway (cleared on save),
      * so reading them all unconditionally is safe.
+     *
+     * status/priority are plain ticket-level fields now (no more /code
+     * navigation); category/impact/urgency moved onto incidentForm.
      * ------------------------------------------------------- */
     _applyFilters: function () {
       var aFilters = [];
 
       var sStatus = this.byId("statusFilter").getSelectedKey() || this._sStatusCode;
       if (sStatus) {
-        aFilters.push(new Filter("status/code", FilterOperator.EQ, sStatus));
+        aFilters.push(new Filter("status", FilterOperator.EQ, sStatus));
       }
       var sCategory = this.byId("categoryFilter").getSelectedKey();
-      if (sCategory) { aFilters.push(new Filter("category1/name", FilterOperator.EQ, sCategory)); }
+      if (sCategory) { aFilters.push(new Filter("incidentForm/category1", FilterOperator.EQ, sCategory)); }
 
       var sPriority = this.byId("priorityFilter").getSelectedKey();
-      if (sPriority) { aFilters.push(new Filter("priority/code", FilterOperator.EQ, sPriority)); }
+      if (sPriority) { aFilters.push(new Filter("priority", FilterOperator.EQ, sPriority)); }
 
       var sAssignee = this.byId("assigneeFilter").getSelectedKey();
       if (sAssignee) { aFilters.push(new Filter("messageProcessor", FilterOperator.EQ, sAssignee)); }
 
       var sImpact = this.byId("impactFilter").getSelectedKey();
-      if (sImpact) { aFilters.push(new Filter("impact/code", FilterOperator.EQ, sImpact)); }
+      if (sImpact) { aFilters.push(new Filter("incidentForm/impact", FilterOperator.EQ, sImpact)); }
 
       var sUrgency = this.byId("urgencyFilter").getSelectedKey();
-      if (sUrgency) { aFilters.push(new Filter("urgency/code", FilterOperator.EQ, sUrgency)); }
+      if (sUrgency) { aFilters.push(new Filter("incidentForm/urgency", FilterOperator.EQ, sUrgency)); }
 
       if (this._sUnassignedOnly) {
         aFilters.push(new Filter("messageProcessor", FilterOperator.EQ, null));
@@ -661,7 +712,7 @@ sap.ui.define([
       if (this._sSearch) {
         aFilters.push(new Filter({
           filters: [
-            new Filter("incidentNumber", FilterOperator.Contains, this._sSearch),
+            new Filter("ticketNumber", FilterOperator.Contains, this._sSearch),
             new Filter("shortDescription", FilterOperator.Contains, this._sSearch)
           ],
           and: false
@@ -683,12 +734,189 @@ sap.ui.define([
       var oItem = oEvent.getParameter("listItem") || oEvent.getSource();
       var oCtx = oItem.getBindingContext();
       if (oCtx) {
-        this.getOwnerComponent().getRouter().navTo("detail", { id: oCtx.getProperty("ID") });
+        this.getOwnerComponent().getRouter().navTo("detail", { id: oCtx.getProperty("ticketID") });
       }
     },
 
     onCreateTicket: function () {
       this.getOwnerComponent().getRouter().navTo("create");
+    },
+
+    /* ---------------------------------------------------------
+     * Row selection (checkboxes) — just tracks whether the "More"
+     * menu button should be enabled.
+     * ------------------------------------------------------- */
+    onTableSelectionChange: function () {
+      var aContexts = this.byId("dashTable").getSelectedContexts();
+      this.getView().getModel("sel").setProperty("/hasSelection", aContexts.length > 0);
+    },
+
+    /* ---------------------------------------------------------
+     * Bulk delete — same rule as the single-ticket Delete button
+     * (Main.controller.js): only Draft tickets can be deleted. The
+     * server enforces this independently (service.js:
+     * restrictDeleteToDrafts); this is just so non-Draft selections
+     * are skipped with a clear message instead of erroring.
+     * ------------------------------------------------------- */
+    onBulkDelete: function () {
+      var that = this;
+      var aContexts = this.byId("dashTable").getSelectedContexts();
+      var aDraftCtx = aContexts.filter(function (oCtx) {
+        return oCtx.getObject().status === STATUS_DRAFT;
+      });
+      var iSkipped = aContexts.length - aDraftCtx.length;
+
+      if (!aDraftCtx.length) {
+        MessageToast.show("Only Draft tickets can be deleted — none of the selected tickets are Drafts.");
+        return;
+      }
+
+      MessageBox.confirm(
+        "Delete " + aDraftCtx.length + " Draft ticket(s)?" +
+          (iSkipped ? " (" + iSkipped + " non-Draft selection(s) will be left untouched.)" : "") +
+          " This cannot be undone.",
+        {
+          title: "Delete Tickets",
+          actions: [MessageBox.Action.DELETE, MessageBox.Action.CANCEL],
+          emphasizedAction: MessageBox.Action.DELETE,
+          onClose: function (sAction) {
+            if (sAction !== MessageBox.Action.DELETE) { return; }
+            var oModel = that.getOwnerComponent().getModel();
+            aDraftCtx.forEach(function (oCtx) { oCtx.delete(); });
+            oModel.submitBatch(oModel.getUpdateGroupId()).then(function () {
+              MessageToast.show(aDraftCtx.length + " ticket(s) deleted.");
+              that.byId("dashTable").removeSelections(true);
+            }).catch(function (err) {
+              MessageBox.error("Delete failed: " + (err.message || err));
+            });
+          }
+        }
+      );
+    },
+
+    /* ---------------------------------------------------------
+     * Bulk submit — same rule and required-field validation as the
+     * single-ticket Submit button (Main.controller.js onSubmit), just
+     * applied per selected Draft ticket, via the submitTicket() action
+     * (a plain status PATCH is refused once a ticket is Draft — see
+     * srv/handlers/ticket.js onUpdateTicket). Non-Draft selections and
+     * Drafts missing required fields are skipped, not blocking, so one
+     * incomplete ticket in the batch doesn't stop the rest.
+     * ------------------------------------------------------- */
+    onBulkSubmit: function () {
+      var that = this;
+      var aContexts = this.byId("dashTable").getSelectedContexts();
+      var aDraftCtx = aContexts.filter(function (oCtx) {
+        return oCtx.getObject().status === STATUS_DRAFT;
+      });
+
+      if (!aDraftCtx.length) {
+        MessageToast.show("Only Draft tickets can be submitted — none of the selected tickets are Drafts.");
+        return;
+      }
+
+      MessageBox.confirm(
+        "Submit " + aDraftCtx.length + " Draft ticket(s)?",
+        {
+          title: "Submit Tickets",
+          actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+          emphasizedAction: MessageBox.Action.OK,
+          onClose: function (sAction) {
+            if (sAction !== MessageBox.Action.OK) { return; }
+            that._submitDraftContexts(aDraftCtx);
+          }
+        }
+      );
+    },
+
+    _submitDraftContexts: function (aDraftCtx) {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+
+      Promise.all(aDraftCtx.map(function (oCtx) {
+        return oCtx.requestProperty(SUBMIT_REQUIRED_FIELDS).then(function () {
+          var oData = oCtx.getObject();
+          var oForm = oData.incidentForm || {};
+          var bValid = !!oData.shortDescription && !!oData.priority && !!oForm.impact && !!oForm.urgency && !!oForm.description;
+          return { oCtx: oCtx, valid: bValid, number: oData.ticketNumber };
+        });
+      })).then(function (aResults) {
+        var aValid = aResults.filter(function (r) { return r.valid; });
+        var aInvalid = aResults.filter(function (r) { return !r.valid; });
+
+        if (!aValid.length) {
+          MessageBox.warning("None of the selected Draft tickets have all required fields filled in " +
+            "(Short Description, Impact, Urgency, Priority, Full Description). Open each one to complete it.");
+          return;
+        }
+
+        Promise.all(aValid.map(function (r) {
+          var oAction = oModel.bindContext("ITSMService.submitTicket(...)", r.oCtx);
+          return oAction.execute();
+        })).then(function () {
+          var sMsg = aValid.length + " ticket(s) submitted.";
+          if (aInvalid.length) {
+            sMsg += " Skipped (missing required fields): " +
+              aInvalid.map(function (r) { return r.number; }).join(", ");
+          }
+          MessageToast.show(sMsg);
+          that.byId("dashTable").removeSelections(true);
+          that._onMatched();
+        }).catch(function (err) {
+          MessageBox.error("Submit failed: " + (err.message || err));
+        });
+      });
+    },
+
+    /* ---------------------------------------------------------
+     * Bulk assign — ServiceGroup only (see service.cds assignTickets and
+     * the "Assign Selected" menu item's visibility binding). Opens a small
+     * dialog to pick an engineer and/or a support team, then calls the
+     * action with the selected ticketIDs.
+     * ------------------------------------------------------- */
+    onBulkAssign: function () {
+      this._aAssignTicketIds = this.byId("dashTable").getSelectedContexts()
+        .map(function (oCtx) { return oCtx.getProperty("ticketID"); });
+
+      if (!this._aAssignTicketIds.length) {
+        MessageToast.show("Select at least one ticket to assign.");
+        return;
+      }
+
+      this.byId("assignProcessorSelect").setSelectedKey("");
+      this.byId("assignTeamSelect").setSelectedKey("");
+      this.byId("assignDialog").open();
+    },
+
+    onConfirmAssign: function () {
+      var that = this;
+      var sProcessor = this.byId("assignProcessorSelect").getSelectedKey() || null;
+      var sTeam = this.byId("assignTeamSelect").getSelectedKey() || null;
+
+      if (!sProcessor && !sTeam) {
+        MessageToast.show("Choose an engineer, a support team, or both.");
+        return;
+      }
+
+      var oModel = this.getOwnerComponent().getModel();
+      var oAction = oModel.bindContext("/assignTickets(...)");
+      oAction.setParameter("tickets", this._aAssignTicketIds);
+      oAction.setParameter("messageProcessor", sProcessor);
+      oAction.setParameter("supportTeam", sTeam);
+
+      oAction.execute().then(function () {
+        var iChanged = oAction.getBoundContext().getValue();
+        that.byId("assignDialog").close();
+        MessageToast.show(iChanged + " ticket(s) updated.");
+        that.byId("dashTable").removeSelections(true);
+        that._onMatched();
+      }).catch(function (err) {
+        MessageBox.error("Assign failed: " + (err.message || err));
+      });
+    },
+
+    onCancelAssign: function () {
+      this.byId("assignDialog").close();
     },
 
     onGoDashboard: function () {
@@ -702,7 +930,7 @@ sap.ui.define([
     /* ---------------------------------------------------------
      * "Manage Tiles" — pick exactly TILE_COUNT tiles out of the full
      * ALL_TILES pool. Opens with the current selection pre-checked;
-     * Save only enables once exactly 7 are checked.
+     * Save only enables once exactly 6 are checked.
      * ------------------------------------------------------- */
     onManageTiles: function () {
       var aSelectedKeys = this._aSelectedTileKeys;
@@ -873,41 +1101,45 @@ sap.ui.define([
     },
 
     // Status -> sap.ui.core.ValueState, so open/blocked tickets stand out
-    // (Customer Action in red) and closed ones read as done (green).
-    formatStatusState: function (sName) {
-      switch (sName) {
-        case "New": return "Information";
-        case "In Process": return "Warning";
-        case "Customer Action": return "Error";
-        case "Solution Proposed": return "Warning";
-        case "Confirmed": return "Success";
-        case "Closed": return "Success";
+    // (Customer Action in red) and closed ones read as done (green). Keys
+    // off the plain status *code* now, not a display name.
+    formatStatusState: function (sCode) {
+      switch (sCode) {
+        case "NEW": return "Information";
+        case "IN_PROCESS": return "Warning";
+        case "CUSTOMER_ACTION": return "Error";
+        case "SOLUTION_PROPOSED": return "Warning";
+        case "CONFIRMED": return "Success";
+        case "CLOSED": return "Success";
         default: return "None";
       }
     },
 
     // Priority -> sap.ui.core.ValueState, so P1/P2 (needs urgent attention)
-    // pop in red/amber against the rest of the row.
-    formatPriorityState: function (sName) {
-      if (!sName) { return "None"; }
-      if (sName.indexOf("P1") === 0) { return "Error"; }
-      if (sName.indexOf("P2") === 0) { return "Warning"; }
-      if (sName.indexOf("P3") === 0) { return "Information"; }
-      return "None";
+    // pop in red/amber against the rest of the row. Keys off the plain
+    // priority code now (P1..P4), not a display name.
+    formatPriorityState: function (sCode) {
+      switch (sCode) {
+        case "P1": return "Error";
+        case "P2": return "Warning";
+        case "P3": return "Information";
+        default: return "None";
+      }
     },
 
     /* ---------------------------------------------------------
      * SLA badge — response clock runs from createdAt until
-     * firstResponseOn is stamped (ticket leaves New); resolution
-     * clock runs from createdAt until completedOn is stamped
-     * (Confirmed/Closed). Both stamped server-side, see service.js.
+     * firstResponseAt is stamped (ticket leaves New); resolution
+     * clock runs from createdAt until completedAt is stamped
+     * (Confirmed/Closed). Both stamped server-side, see
+     * srv/handlers/ticket.js stampSlaTimestamps.
      * ------------------------------------------------------- */
-    formatSlaState: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
-      return this._computeSla(sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn).state;
+    formatSlaState: function (sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt) {
+      return this._computeSla(sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt).state;
     },
 
-    formatSlaText: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
-      return this._computeSla(sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn).text;
+    formatSlaText: function (sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt) {
+      return this._computeSla(sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt).text;
     },
 
     // A small custom badge (plain Unicode arrows, not the SAP icon font —
@@ -933,7 +1165,7 @@ sap.ui.define([
       };
     },
 
-    _computeSla: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
+    _computeSla: function (sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt) {
       var oWindow = SLA_HOURS[sPriorityCode];
       if (!oWindow || !sCreatedAt) { return { state: "None", text: "-" }; }
 
@@ -941,14 +1173,14 @@ sap.ui.define([
       var iCreated = new Date(sCreatedAt).getTime();
       var iNow = Date.now();
 
-      if (sCompletedOn) {
+      if (sCompletedAt) {
         var iResolveBy = iCreated + oWindow.resolution * HOUR;
-        return new Date(sCompletedOn).getTime() <= iResolveBy
+        return new Date(sCompletedAt).getTime() <= iResolveBy
           ? { state: "Success", text: "SLA Met" }
           : { state: "Error", text: "SLA Breached" };
       }
 
-      if (!sFirstResponseOn) {
+      if (!sFirstResponseAt) {
         var iResponseBy = iCreated + oWindow.response * HOUR;
         var iLeft = iResponseBy - iNow;
         if (iLeft < 0) { return { state: "Error", text: "Response Overdue" }; }

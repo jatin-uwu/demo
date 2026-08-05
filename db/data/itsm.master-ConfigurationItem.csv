@@ -1,0 +1,4 @@
+ID,ciCode,name,description
+c5000000-0000-4000-8000-000000000001,CI-0001,PROD-ERP-01,Production ERP application server
+c5000000-0000-4000-8000-000000000002,CI-0002,PROD-DB-01,Production HANA database server
+c5000000-0000-4000-8000-000000000003,CI-0003,CORP-NET-FW,Corporate perimeter firewall

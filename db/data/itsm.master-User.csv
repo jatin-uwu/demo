@@ -1,0 +1,6 @@
+ID,userId,name,email,isActive
+b1000000-0000-4000-8000-000000000001,sachin,Sachin Chaudhary,sachin.chaudhary@ccentrik.com,true
+b1000000-0000-4000-8000-000000000002,virat,Virat Srivastava,virat.srivastava@ccentrik.com,true
+b1000000-0000-4000-8000-000000000003,aayush,Aayush Morwal,aayush.morwal@ccentrik.com,true
+b1000000-0000-4000-8000-000000000004,sarthak,Sarthak Tyagi,sarthak.tyagi@ccentrik.com,true
+b1000000-0000-4000-8000-000000000005,deepak,Deepak Rao,deepak.rao@ccentrik.com,true

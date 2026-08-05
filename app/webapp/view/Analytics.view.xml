@@ -116,7 +116,7 @@
           <CustomListItem type="Navigation" press=".onAtRiskPress">
             <HBox justifyContent="SpaceBetween" alignItems="Center" class="atRiskRow" width="100%">
               <VBox>
-                <Text text="{an>incidentNumber}" class="atRiskNumber"/>
+                <Text text="{an>ticketNumber}" class="atRiskNumber"/>
                 <Text text="{an>shortDescription}" class="atRiskDesc"/>
               </VBox>
               <VBox alignItems="End">
@@ -145,9 +145,8 @@
             growing="true"
             growingThreshold="50"
             items="{
-              path: '/Incident',
+              path: '/Tickets',
               parameters: {
-                $expand: 'status($select=name),priority($select=name,code)',
                 $orderby: 'createdAt desc'
               }
             }"
@@ -163,10 +162,10 @@
             <items>
               <ColumnListItem type="Navigation" press=".onTicketPress">
                 <cells>
-                  <Text text="{incidentNumber}"/>
+                  <Text text="{ticketNumber}"/>
                   <Text text="{shortDescription}"/>
-                  <ObjectStatus text="{status/name}" state="{path: 'status/name', formatter: '.formatStatusState'}"/>
-                  <ObjectStatus text="{priority/name}" state="{path: 'priority/name', formatter: '.formatPriorityState'}"/>
+                  <ObjectStatus text="{path: 'status', formatter: '.formatStatusName'}" state="{path: 'status', formatter: '.formatStatusState'}"/>
+                  <ObjectStatus text="{path: 'priority', formatter: '.formatPriorityName'}" state="{path: 'priority', formatter: '.formatPriorityState'}"/>
                 </cells>
               </ColumnListItem>
             </items>

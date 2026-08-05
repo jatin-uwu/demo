@@ -1,109 +1,237 @@
- namespace itsm;
- 
+namespace itsm;
+
 using { cuid, managed } from '@sap/cds/common';
- 
-/*=========================================
-    Generic Lookup Table
-=========================================*/
- 
-entity LookupValue : cuid, managed {
- 
-    lookupType      : String(50);     // STATUS, PRIORITY, IMPACT, URGENCY, CATEGORY1...
-    code            : String(50);
-    name            : String(100);
-    description     : String(255);
- 
-    parent          : Association to LookupValue;
- 
-    sequence        : Integer;
-    isDefault       : Boolean default false;
-    isActive        : Boolean default true;
-}
- 
- 
-/*=========================================
-    Incident
-=========================================*/
- 
-entity Incident : cuid, managed {
- 
-    // General Data
-    incidentNumber      : String(30);
- 
-    userId              : String(50);         // or Association to User
-    reportedBy          : String(100);        // or Association to User
-    supportTeam         : String(100);        // or Association to Team
-    messageProcessor    : String(100);        // or Association to User
- 
-    shortDescription    : String(255);
-    description         : LargeString;
- 
-    // Categories
-    category1           : Association to LookupValue;
-    category2           : Association to LookupValue;
-    category3           : Association to LookupValue;
-    category4           : Association to LookupValue;
-    solutionCategory    : Association to LookupValue;
- 
-    // Processing Data
-    status              : Association to LookupValue;
-    impact              : Association to LookupValue;
-    urgency             : Association to LookupValue;
-    priority            : Association to LookupValue;
- 
-    // Dates
-    createdOn           : Timestamp;
-    firstResponseOn     : Timestamp;
-    completedOn         : Timestamp;
-}
- 
- 
-/*=========================================
-    Attachments
-=========================================*/
 
-entity Attachment : cuid, managed {
 
-    incident        : Association to Incident;
+/*=========================================================
+    MASTER DATA CONTEXT
+=========================================================*/
+context master {
 
-    fileName        : String(255);
-    originalName    : String(255);
-    mimeType        : String(100);
-    fileSize        : Integer;
-    storagePath     : String(500);
+    @assert.unique.typeCode: [lookupType, code]
+    entity LookupValue : cuid, managed {
+        lookupType   : String(50)  @assert.notNull;   // STATUS, PRIORITY, IMPACT, URGENCY, CATEGORY1..4, TICKETTYPE, SOLUTION
+        code         : String(50)  @assert.notNull;
+        name         : localized String(100);
+        description  : localized String(255);
+        parent       : Association to LookupValue;
+        sequence     : Integer;
+        isDefault    : Boolean default false;
+        isActive     : Boolean default true;
+    }
+
+    entity TicketCounter : managed {
+        key prefix : String(10);
+        lastNumber : Integer default 1;
+    }
+
+    entity User : cuid, managed {
+        userId   : String(50) @assert.unique;
+        name     : String(100);
+        email    : String(100);
+        isActive : Boolean default true;
+    }
+
+    entity SupportTeam : cuid, managed {
+        teamCode : String(50) @assert.unique;
+        name     : String(100);
+        isActive : Boolean default true;
+    }
+
+    entity SystemMaster : cuid, managed {
+        systemId    : String(50) @assert.unique;
+        name        : String(100);
+        description : String(255);
+    }
+
+    entity SoftwareComponent : cuid, managed {
+        componentCode : String(50) @assert.unique;
+        name          : String(100);
+    }
+
+    entity ConfigurationItem : cuid, managed {
+        ciCode      : String(50) @assert.unique;
+        name        : String(100);
+        description : String(255);
+    }
 }
 
 
-/*=========================================
-    Incident Change History
-    One row per created record and per changed
-    field on update. `createdBy` / `createdAt`
-    from `managed` double as "who" / "when".
-=========================================*/
+/*=========================================================
+    TRANSACTIONAL DATA CONTEXT
+=========================================================*/
+context txn {
 
-entity IncidentHistory : cuid, managed {
+    /*---------------------------------------------------------
+        MAIN TICKET
+    ---------------------------------------------------------*/
+    @cds.search: { ticketNumber, shortDescription }
+    entity Ticket : managed {
 
-    incident        : Association to Incident;
+        // Identity
+        key ticketID     : String(30);
+        ticketNumber     : String(30) @assert.unique;
+        ticketType       : String(50);
 
-    changeType      : String(20);       // CREATE, UPDATE
-    fieldLabel      : String(100);      // e.g. "Status" — null for CREATE
-    oldValue        : String(255);
-    newValue        : String(255);
-}
+        // Generic information
+        shortDescription : String(255);
+        status           : String(50);
+        priority         : String(50);
 
+        // Ownership (plain login ids / team codes, not associations)
+        reportedBy       : String(50);
+        messageProcessor : String(50);
+        supportTeam      : String(50);
 
-/*=========================================
-    Agents
-    A picklist for "Assigned To" so the field
-    is chosen from a real list instead of free
-    text. Incident.messageProcessor stores the
-    chosen name as plain text (not a foreign
-    key) — deliberately, to keep this additive.
-=========================================*/
+        // SLA
+        firstResponseAt  : Timestamp;
+        dueAt            : Timestamp;
+        completedAt      : Timestamp;
 
-entity Agent : cuid, managed {
+        // Child collections
+        attachments      : Composition of many Attachment
+                           on attachments.ticket = $self;
 
-    name        : String(100);
-    email       : String(150);
-    active      : Boolean default true;
+        comments         : Composition of many TicketComment
+                           on comments.ticket = $self;
+
+        history          : Composition of many TicketHistory
+                           on history.ticket = $self;
+
+        transactions     : Composition of many TicketTransaction
+                           on transactions.ticket = $self;
+
+        scheduledActions : Composition of many ScheduledAction
+                           on scheduledActions.ticket = $self;
+
+        incidentForm     : Composition of one IncidentForm
+                           on incidentForm.ticket = $self;
+    }
+
+    /*---------------------------------------------------------
+        INCIDENT FORM (1:1 with Ticket)
+    ---------------------------------------------------------*/
+    entity IncidentForm : cuid {
+
+        ticket : Association to Ticket;
+
+        description         : LargeString;
+
+        // UI-managed dropdown values
+        category1           : String(100);
+        category2           : String(100);
+        category3           : String(100);
+        category4           : String(100);
+        solutionCategory    : String(100);
+
+        impact              : String(50);
+        urgency             : String(50);
+        recommendedPriority : String(50);
+
+        language            : String(50);
+        isStandard          : Boolean default false;
+
+        // Previously master associations — now plain codes
+        system              : String(50);
+        softwareComponent   : String(50);
+        softwareVersion     : String(50);
+        supportPackage      : Integer;
+        configurationItem   : String(50);
+        relatedRFC          : String(30);
+
+        irtStatus           : String(50);
+        mptStatus           : String(50);
+
+        sapNotes            : Composition of many TicketSAPNote
+                              on sapNotes.ticketForm = $self;
+
+        sapNoteSearch       : Composition of one SAPNoteSearchCriteria
+                              on sapNoteSearch.ticketForm = $self;
+    }
+
+    /*---------------------------------------------------------
+        ATTACHMENTS
+    ---------------------------------------------------------*/
+    entity Attachment : cuid, managed {
+        ticket       : Association to Ticket;
+        fileName     : String(255);
+        originalName : String(255);
+        mimeType     : String(100) @Core.IsMediaType;
+        fileSize     : Integer;
+        content      : LargeBinary @Core.MediaType: mimeType;
+        storagePath  : String(500);
+    }
+
+    /*---------------------------------------------------------
+        SAP NOTES ATTACHED TO INCIDENT FORM
+    ---------------------------------------------------------*/
+    entity TicketSAPNote : cuid, managed {
+        ticketForm    : Association to IncidentForm;
+        sapNoteNumber : String(20);
+        description   : LargeString;
+        details       : LargeString;
+        component     : String(50);
+        status        : String(50);
+    }
+
+    /*---------------------------------------------------------
+        SAP NOTE SEARCH CRITERIA
+    ---------------------------------------------------------*/
+    entity SAPNoteSearchCriteria : cuid, managed {
+        ticketForm                : Association to IncidentForm;
+        componentsStartWith       : String(100);
+        componentsExact           : String(100);
+        excludedComponents        : String(100);
+        supportPackageGreaterThan : Integer;
+        supportPackageEqual       : Integer;
+        fuzzyThreshold            : String(50);
+        releasedOnPreDefined      : String(50);
+        releasedOnFree            : Date;
+    }
+
+    /*---------------------------------------------------------
+        RELATED TRANSACTIONS
+    ---------------------------------------------------------*/
+    entity TicketTransaction : cuid, managed {
+        ticket          : Association to Ticket;
+        transactionId   : String(30);
+        transaction     : String(30);
+        description     : String(255);
+        category        : String(50);
+        status          : String(50);
+        priority        : String(50);
+        transactionType : String(50);
+    }
+
+    /*---------------------------------------------------------
+        SCHEDULED ACTIONS
+    ---------------------------------------------------------*/
+    entity ScheduledAction : cuid, managed {
+        ticket           : Association to Ticket;
+        actionDefinition : String(255);
+        processingType   : String(50);
+        status           : String(50);
+        executable       : Boolean default false;
+        scheduledAt      : Timestamp;
+    }
+
+    /*---------------------------------------------------------
+        COMMENTS
+    ---------------------------------------------------------*/
+    entity TicketComment : cuid, managed {
+        ticket  : Association to Ticket;
+        comment : LargeString;
+        author  : String(50);
+    }
+
+    /*---------------------------------------------------------
+        HISTORY / AUDIT
+    ---------------------------------------------------------*/
+    entity TicketHistory : cuid, managed {
+        ticket    : Association to Ticket;
+        fieldName : String(100);
+        oldValue  : LargeString;
+        newValue  : LargeString;
+        changedBy : String(50);
+    }
 }

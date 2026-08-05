@@ -11,7 +11,7 @@ build-parameters:
     - builder: custom
       commands:
         - npm install
-        - npx cds build --production
+        - cds build --production
 
 modules:
   # ---------------------------------------------------------------

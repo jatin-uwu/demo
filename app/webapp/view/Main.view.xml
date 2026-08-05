@@ -3,9 +3,7 @@
   xmlns:mvc="sap.ui.core.mvc"
   xmlns="sap.m"
   xmlns:core="sap.ui.core"
-  xmlns:f="sap.ui.layout.form"
   xmlns:u="sap.ui.unified"
-  xmlns:upload="sap.m.upload"
   displayBlock="true">
 
   <Page id="page" showHeader="false" backgroundDesign="Transparent" class="appBg densePage">
@@ -27,8 +25,9 @@
         <Title text="Service Desk" class="appHeaderTitle"/>
       </contentMiddle>
       <contentRight>
+        <Button text="Delete" type="Negative" class="sapUiTinyMarginEnd" visible="{ui>/showDelete}" press=".onDelete"/>
         <Button text="Edit" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showEdit}" press=".onEdit"/>
-        <Button text="Save" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showSave}" press=".onSave"/>
+        <Button text="{ui>/saveLabel}" class="saveBtn sapUiTinyMarginEnd" visible="{ui>/showSave}" enabled="{ui>/saveEnabled}" press=".onSave"/>
         <Button text="Submit" class="submitBtn" visible="{ui>/showSubmit}" press=".onSubmit"/>
       </contentRight>
     </Bar>
@@ -43,8 +42,9 @@
     <!-- Tabs act as in-page navigation: selecting one scrolls to its section. -->
     <IconTabHeader id="tabs" mode="Inline" backgroundDesign="Transparent" select=".onTabSelect" class="sapUiSmallMarginTop">
       <items>
-        <IconTabFilter text="Details" key="details"/>
-        <IconTabFilter text="Description" key="description"/>
+        <IconTabFilter text="General &amp; Category" key="general"/>
+        <IconTabFilter text="Processing &amp; Dates" key="processing"/>
+        <IconTabFilter text="Relationships &amp; Description" key="relationships"/>
         <IconTabFilter text="Attachments" key="attachments"/>
         <IconTabFilter text="History" key="history"/>
       </items>
@@ -52,212 +52,288 @@
 
     <VBox id="sections">
 
-        <!-- DETAILS -->
-        <VBox id="secDetails">
+        <!-- ===== 1. GENERAL DATA + CATEGORY ASSIGNMENT (merged) =====
+             Originally two field groups (General Data, Category Assignment)
+             in one card. Merged into a single group under one pill/heading
+             — the Details tab was growing too tall with 5 separate group
+             headings, and these two were always filled in together anyway. -->
+        <VBox id="secGeneral">
+          <VBox class="sectionCard">
+            <Text text="GENERAL DATA &amp; CATEGORY ASSIGNMENT" class="sectionPill"/>
+            <VBox class="formGrid">
 
-          <!-- ===== 1. GENERAL DATA ===== -->
-          <Panel class="sectionCard" headerText="General Data" expandable="true" expanded="true">
-            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+              <VBox class="formField">
+                <Label text="Ticket Type"/>
+                <Select selectedKey="{ticketType}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                        items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'TICKETTYPE' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                  <core:Item key="{code}" text="{name}"/>
+                </Select>
+              </VBox>
 
-              <Label text="ID"/>
-              <Input value="{incidentNumber}" editable="false" placeholder="Auto-generated"/>
+              <VBox class="formField">
+                <Label text="Reported By"/>
+                <!-- Server-assigned (see beforeCreateTicket) — the reporter is
+                     always the logged-in user, never free text anymore. -->
+                <Input value="{path: 'reportedBy', formatter: '.formatUserName'}" editable="false" width="100%"/>
+              </VBox>
 
-              <Label text="Reported By"/>
-              <Input value="{reportedBy}" placeholder="Mr. Raju"/>
+              <VBox class="formField">
+                <Label text="Support Team"/>
+                <Select selectedKey="{supportTeam}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                        items="{ path: '/SupportTeams', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
+                  <core:Item key="{teamCode}" text="{name}"/>
+                </Select>
+              </VBox>
 
-              <Label text="Support Team"/>
-              <Input value="{supportTeam}" showValueHelp="true"/>
-
-              <Label text="Message Processor"/>
-              <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/formEditable}"
-                      items="{ path: '/Agent', parameters: { $filter : &quot;active eq true&quot;, $orderby: 'name' } }">
-                <core:Item key="{name}" text="{name}"/>
-              </Select>
-
-            </f:SimpleForm>
-
-            <Label text="Description" required="true" class="sapUiSmallMarginTop"/>
-            <TextArea rows="3" width="100%" editable="{ui>/formEditable}"
-              value="{shortDescription}"
-              placeholder="Provide the precise summary of the incident."/>
-          </Panel>
-
-          <!-- ===== 2. CATEGORY (existing implementation, unchanged) ===== -->
-          <Panel class="sectionCard" headerText="Category Assignment" expandable="true" expanded="true">
-            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+              <VBox class="formField">
+                <Label text="Message Processor"/>
+                <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                        items="{ path: '/Users', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
+                  <core:Item key="{userId}" text="{name}"/>
+                </Select>
+              </VBox>
 
               <!-- Cascading categories. Each level is filled by the controller
                    from the children of the level above, so depth and content
-                   come purely from master data. -->
-              <Label text="Category 1"/>
-              <Select id="selCategory1" selectedKey="{category1_ID}"
-                      items="{cat>/levels/0/items}"
-                      enabled="{cat>/levels/0/enabled}"
-                      busy="{cat>/levels/0/busy}"
-                      busyIndicatorDelay="0"
-                      forceSelection="false"
-                      width="100%"
-                      change=".onCategoryChange">
-                <core:Item key="{cat>ID}" text="{cat>name}"/>
-              </Select>
-              <Text text="No subcategories available" visible="{cat>/levels/0/noChildren}" class="noSubText"/>
+                   come purely from master data. Stored on the ticket as the
+                   LookupValue *code* now (not its ID) — the ID is only used
+                   internally to walk the parent/child hierarchy. -->
+              <VBox class="formField">
+                <Label text="Category 1"/>
+                <Select id="selCategory1" selectedKey="{incidentForm/category1}"
+                        items="{cat>/levels/0/items}"
+                        enabled="{cat>/levels/0/enabled}"
+                        busy="{cat>/levels/0/busy}"
+                        busyIndicatorDelay="0"
+                        forceSelection="false"
+                        width="100%"
+                        change=".onCategoryChange">
+                  <core:Item key="{cat>code}" text="{cat>name}"/>
+                </Select>
+                <Text text="No subcategories available" visible="{cat>/levels/0/noChildren}" class="noSubText"/>
+              </VBox>
 
-              <Label text="Category 2"/>
-              <Select id="selCategory2" selectedKey="{category2_ID}"
-                      items="{cat>/levels/1/items}"
-                      enabled="{cat>/levels/1/enabled}"
-                      busy="{cat>/levels/1/busy}"
-                      busyIndicatorDelay="0"
-                      forceSelection="false"
-                      width="100%"
-                      change=".onCategoryChange">
-                <core:Item key="{cat>ID}" text="{cat>name}"/>
-              </Select>
-              <Text text="No subcategories available" visible="{cat>/levels/1/noChildren}" class="noSubText"/>
+              <VBox class="formField">
+                <Label text="Category 2"/>
+                <Select id="selCategory2" selectedKey="{incidentForm/category2}"
+                        items="{cat>/levels/1/items}"
+                        enabled="{cat>/levels/1/enabled}"
+                        busy="{cat>/levels/1/busy}"
+                        busyIndicatorDelay="0"
+                        forceSelection="false"
+                        width="100%"
+                        change=".onCategoryChange">
+                  <core:Item key="{cat>code}" text="{cat>name}"/>
+                </Select>
+                <Text text="No subcategories available" visible="{cat>/levels/1/noChildren}" class="noSubText"/>
+              </VBox>
 
-              <Label text="Category 3"/>
-              <Select id="selCategory3" selectedKey="{category3_ID}"
-                      items="{cat>/levels/2/items}"
-                      enabled="{cat>/levels/2/enabled}"
-                      busy="{cat>/levels/2/busy}"
-                      busyIndicatorDelay="0"
-                      forceSelection="false"
-                      width="100%"
-                      change=".onCategoryChange">
-                <core:Item key="{cat>ID}" text="{cat>name}"/>
-              </Select>
-              <Text text="No subcategories available" visible="{cat>/levels/2/noChildren}" class="noSubText"/>
+              <VBox class="formField">
+                <Label text="Category 3"/>
+                <Select id="selCategory3" selectedKey="{incidentForm/category3}"
+                        items="{cat>/levels/2/items}"
+                        enabled="{cat>/levels/2/enabled}"
+                        busy="{cat>/levels/2/busy}"
+                        busyIndicatorDelay="0"
+                        forceSelection="false"
+                        width="100%"
+                        change=".onCategoryChange">
+                  <core:Item key="{cat>code}" text="{cat>name}"/>
+                </Select>
+                <Text text="No subcategories available" visible="{cat>/levels/2/noChildren}" class="noSubText"/>
+              </VBox>
 
-              <Label text="Category 4"/>
-              <Select id="selCategory4" selectedKey="{category4_ID}"
-                      items="{cat>/levels/3/items}"
-                      enabled="{cat>/levels/3/enabled}"
-                      busy="{cat>/levels/3/busy}"
-                      busyIndicatorDelay="0"
-                      forceSelection="false"
-                      width="100%"
-                      change=".onCategoryChange">
-                <core:Item key="{cat>ID}" text="{cat>name}"/>
-              </Select>
-              <Text text="No subcategories available" visible="{cat>/levels/3/noChildren}" class="noSubText"/>
+              <VBox class="formField">
+                <Label text="Category 4"/>
+                <Select id="selCategory4" selectedKey="{incidentForm/category4}"
+                        items="{cat>/levels/3/items}"
+                        enabled="{cat>/levels/3/enabled}"
+                        busy="{cat>/levels/3/busy}"
+                        busyIndicatorDelay="0"
+                        forceSelection="false"
+                        width="100%"
+                        change=".onCategoryChange">
+                  <core:Item key="{cat>code}" text="{cat>name}"/>
+                </Select>
+                <Text text="No subcategories available" visible="{cat>/levels/3/noChildren}" class="noSubText"/>
+              </VBox>
 
-              <Label text="Solution Category"/>
-              <Select selectedKey="{solutionCategory_ID}"
-                      items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'SOLUTION' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </Select>
+              <VBox class="formField">
+                <Label text="Solution Category"/>
+                <Select selectedKey="{incidentForm/solutionCategory}" width="100%"
+                        items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'SOLUTION' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                  <core:Item key="{code}" text="{name}"/>
+                </Select>
+              </VBox>
 
-            </f:SimpleForm>
-          </Panel>
+              <VBox class="formField formFieldWide">
+                <Label text="Description" required="true"/>
+                <TextArea rows="2" width="100%" editable="{ui>/formEditable}"
+                  value="{shortDescription}"
+                  placeholder="Provide the precise summary of the incident."
+                  class="descriptionArea"/>
+              </VBox>
 
-          <!-- ===== 3. PROCESSING DATA ===== -->
-          <Panel class="sectionCard" headerText="Processing Data" expandable="true" expanded="true">
-            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
-
-              <Label text="Status"/>
-              <ComboBox selectedKey="{status_ID}" enabled="{ui>/formEditable}"
-                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </ComboBox>
-
-              <Label text="Impact" required="true"/>
-              <ComboBox selectedKey="{impact_ID}" enabled="{ui>/formEditable}"
-                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </ComboBox>
-
-              <Label text="Urgency" required="true"/>
-              <ComboBox selectedKey="{urgency_ID}" enabled="{ui>/formEditable}"
-                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </ComboBox>
-
-              <Label text="Recommended Priority"/>
-              <Input value="{recommendedPriority}" editable="false" placeholder="Auto-suggested"/>
-
-              <Label text="Priority" required="true"/>
-              <ComboBox selectedKey="{priority_ID}" enabled="{ui>/formEditable}"
-                        items="{ path: '/Lookup', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
-                <core:Item key="{ID}" text="{name}"/>
-              </ComboBox>
-
-              <Label text="SLA"/>
-              <ObjectStatus
-                text="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaText'}"
-                state="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaState'}"/>
-
-            </f:SimpleForm>
-          </Panel>
-
-          <!-- ===== 4. DATES ===== -->
-          <Panel class="sectionCard" headerText="Dates" expandable="true" expanded="true">
-            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
-
-              <Label text="Created"/>
-              <Input value="{path: 'createdAt', formatter: '.formatDateTime'}" editable="false"/>
-
-              <Label text="First Response By"/>
-              <DateTimePicker editable="{ui>/formEditable}"
-                value="{path: 'firstResponseOn', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
-
-              <Label text="Due By"/>
-              <DateTimePicker editable="{ui>/formEditable}"
-                value="{path: 'completedOn', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
-
-            </f:SimpleForm>
-          </Panel>
-
-          <!-- ===== 5. RELATIONSHIPS ===== -->
-          <Panel class="sectionCard" headerText="Relationships" expandable="true" expanded="true">
-            <f:SimpleForm editable="{ui>/formEditable}" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
-
-              <Label text="Related Request for Change"/>
-              <Input value="{relatedChangeRequest}" showValueHelp="true"/>
-
-              <Label text="Configuration Item"/>
-              <Input value="{configurationItem}" showValueHelp="true"/>
-
-            </f:SimpleForm>
-          </Panel>
-
+            </VBox>
+          </VBox>
         </VBox>
 
-        <!-- ===== 6. DESCRIPTION ===== -->
-        <VBox id="secDescription">
-          <Panel class="sectionCard" headerText="Description" expandable="true" expanded="true">
-            <Label text="Full Description" required="true"/>
-            <TextArea rows="10" width="100%" editable="{ui>/formEditable}"
-              growing="true" growingMaxLines="25"
-              value="{description}"
-              placeholder="Enter detailed technical notes and incident analysis..."/>
-          </Panel>
+        <!-- ===== 2. PROCESSING DATA + DATES (merged) =====
+             Same idea as above: Processing Data and Dates were always two
+             short groups sitting right next to each other — one heading
+             now instead of two. -->
+        <VBox id="secProcessing">
+          <VBox class="sectionCard">
+            <Text text="PROCESSING DATA &amp; DATES" class="sectionPill"/>
+            <VBox class="formGrid">
+
+              <VBox class="formField">
+                <Label text="Status"/>
+                <ComboBox selectedKey="{status}" enabled="{ui>/formEditable}" width="100%"
+                          items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                  <core:Item key="{code}" text="{name}"/>
+                </ComboBox>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="Impact" required="true"/>
+                <ComboBox selectedKey="{incidentForm/impact}" enabled="{ui>/formEditable}" width="100%"
+                          items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                  <core:Item key="{code}" text="{name}"/>
+                </ComboBox>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="Urgency" required="true"/>
+                <ComboBox selectedKey="{incidentForm/urgency}" enabled="{ui>/formEditable}" width="100%"
+                          items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                  <core:Item key="{code}" text="{name}"/>
+                </ComboBox>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="Recommended Priority"/>
+                <Input value="{incidentForm/recommendedPriority}" editable="false" placeholder="Auto-suggested" width="100%"/>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="Priority" required="true"/>
+                <ComboBox selectedKey="{priority}" enabled="{ui>/formEditable}" width="100%"
+                          items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                  <core:Item key="{code}" text="{name}"/>
+                </ComboBox>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="SLA"/>
+                <ObjectStatus
+                  text="{parts: ['priority','createdAt','firstResponseAt','completedAt'], formatter: '.formatSlaText'}"
+                  state="{parts: ['priority','createdAt','firstResponseAt','completedAt'], formatter: '.formatSlaState'}"
+                  class="slaStatusBox"/>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="Created"/>
+                <Input value="{path: 'createdAt', formatter: '.formatDateTime'}" editable="false" width="100%"/>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="First Response By"/>
+                <DateTimePicker editable="{ui>/formEditable}" width="100%"
+                  value="{path: 'firstResponseAt', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="Due By"/>
+                <DateTimePicker editable="{ui>/formEditable}" width="100%"
+                  value="{path: 'dueAt', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
+              </VBox>
+
+            </VBox>
+          </VBox>
         </VBox>
 
-        <!-- ===== 7. ATTACHMENTS ===== -->
+        <!-- ===== 3. RELATIONSHIPS + DESCRIPTION (merged) =====
+             Full Description used to live in its own expandable Panel/tab;
+             it now sits in the same card as Relationships (as a
+             full-row field, via .formFieldWide) instead of a separate
+             section, and the Panel's own expand/collapse chrome goes away
+             since it never needed to be collapsed independently either. -->
+        <VBox id="secRelationships">
+          <VBox class="sectionCard">
+            <Text text="RELATIONSHIPS &amp; DESCRIPTION" class="sectionPill"/>
+            <VBox class="formGrid">
+
+              <VBox class="formField">
+                <Label text="Related Request for Change"/>
+                <Input value="{incidentForm/relatedRFC}" showValueHelp="true" width="100%"/>
+              </VBox>
+
+              <VBox class="formField">
+                <Label text="Configuration Item"/>
+                <Input value="{incidentForm/configurationItem}" showValueHelp="true" width="100%"/>
+              </VBox>
+
+              <VBox class="formField formFieldWide">
+                <Label text="Full Description" required="true"/>
+                <TextArea rows="2" width="100%" editable="{ui>/formEditable}"
+                  growing="true" growingMaxLines="25"
+                  value="{incidentForm/description}"
+                  placeholder="Enter detailed technical notes and incident analysis..."
+                  class="fullDescriptionArea"/>
+              </VBox>
+
+            </VBox>
+          </VBox>
+        </VBox>
+
+        <!-- ===== 4. ATTACHMENTS ===== -->
         <VBox id="secAttachments">
-          <Panel class="sectionCard" headerText="Attachments" expandable="true" expanded="true">
-            <upload:UploadSet
-              id="attachmentUploadSet"
-              instantUpload="false"
-              uploadEnabled="{ui>/formEditable}"
-              terminationEnabled="true"
-              showIcons="true"
-              items="{attachments>/list}"
-              afterItemAdded=".onAttachmentAdded"
-              removePressed=".onAttachmentRemove"
-              openPressed=".onAttachmentDownload"
-              noDataText="No attachments queued"
-              noDataDescription="Drag files here or use Upload to attach them.">
-              <upload:items>
-                <upload:UploadSetItem
-                  fileName="{attachments>fileName}"
-                  mediaType="{attachments>mimeType}"
-                  visibleEdit="false"
-                  visibleRemove="{ui>/formEditable}"
-                  enabledRemove="{ui>/formEditable}"/>
-              </upload:items>
-            </upload:UploadSet>
-            <Text text="Maximum file size: 50MB. Supported: JPG, PNG, PDF, DOCX, XLSX" class="sapUiSmallMarginTop"/>
+          <Panel class="sectionCard attachmentsPanel" headerText="Attachments" expandable="true" expanded="true">
+            <MessageStrip
+              text="Note: Supported file types: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, EML, MSG. Maximum Allowed Size 25MB."
+              type="Information"
+              showIcon="true"
+              showCloseButton="false"
+              class="attachmentsNote"/>
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="attachmentsToolbar">
+              <Text text="{attachments>/countLabel}" class="attachmentsCount"/>
+              <u:FileUploader
+                id="attachmentFileUploader"
+                buttonOnly="true"
+                iconFirst="true"
+                icon="sap-icon://upload"
+                buttonText="Upload"
+                style="Transparent"
+                multiple="true"
+                enabled="{ui>/formEditable}"
+                change=".onFileSelected"
+                class="attachmentsUploadBtn"/>
+            </HBox>
+
+            <Table id="attachmentsTable" items="{attachments>/list}" noDataText="No data" class="attachmentsTable">
+              <columns>
+                <Column><Text text="Document Name" class="attachmentsColHead"/></Column>
+                <Column><Text text="Document Category" class="attachmentsColHead"/></Column>
+                <Column><Text text="Uploaded by" class="attachmentsColHead"/></Column>
+                <Column><Text text="Uploaded on" class="attachmentsColHead"/></Column>
+                <Column hAlign="Center"><Text text="Action" class="attachmentsColHead"/></Column>
+              </columns>
+              <items>
+                <ColumnListItem>
+                  <cells>
+                    <Link text="{attachments>fileName}" href="{attachments>contentUrl}" target="_blank"
+                          enabled="{= !!${attachments>contentUrl} }"/>
+                    <Text text="{attachments>category}"/>
+                    <Text text="{attachments>uploadedBy}"/>
+                    <Text text="{attachments>uploadedOn}"/>
+                    <Button icon="sap-icon://decline" type="Transparent" tooltip="Remove"
+                            enabled="{ui>/formEditable}" press=".onAttachmentRemove"/>
+                  </cells>
+                </ColumnListItem>
+              </items>
+            </Table>
           </Panel>
         </VBox>
 
@@ -267,15 +343,23 @@
             <Text text="CHANGE HISTORY" class="sectionPill"/>
             <List id="historyTimeline" items="{hist>/list}" showSeparators="None" class="timelineList" noDataText="No changes recorded yet.">
               <CustomListItem>
-                <HBox class="timelineRow">
-                  <core:Icon src="{path: 'hist>changeType', formatter: '.formatHistoryIcon'}" class="timelineDot"/>
-                  <VBox class="timelineBody">
-                    <HBox justifyContent="SpaceBetween">
-                      <Text text="{path: 'hist>changeType', formatter: '.formatHistoryTitle'}" class="timelineTitle"/>
-                      <Text text="{path: 'hist>createdAt', formatter: '.formatDateTime'}" class="timelineDate"/>
+                <HBox class="timelineItemWrap" alignItems="Center">
+                  <!-- Real, in-flow connector (not a pseudo-element sitting in the
+                       flex gap) so it can never be invisibly clipped by the list
+                       item's own overflow box. Hidden for the very first step. -->
+                  <HBox class="timelineConnector" alignItems="Center" visible="{= !${hist>__first} }">
+                    <VBox class="timelineConnectorLine"/>
+                  </HBox>
+                  <VBox class="timelineStep">
+                    <HBox class="timelineStepHead" alignItems="Center">
+                      <core:Icon src="{parts: ['hist>fieldName', 'hist>oldValue'], formatter: '.formatHistoryIcon'}" class="timelineDot"/>
+                      <VBox class="timelineStepHeadText">
+                        <Text text="{parts: ['hist>fieldName', 'hist>oldValue'], formatter: '.formatHistoryTitle'}" class="timelineTitle"/>
+                        <Text text="{path: 'hist>createdAt', formatter: '.formatDateTime'}" class="timelineDate"/>
+                      </VBox>
                     </HBox>
-                    <Text text="{parts: ['hist>changeType', 'hist>fieldLabel', 'hist>oldValue', 'hist>newValue'], formatter: '.formatHistoryText'}" class="timelineText"/>
-                    <Text text="{hist>createdBy}" class="timelineUser"/>
+                    <Text text="{parts: ['hist>fieldName', 'hist>oldValue', 'hist>newValue'], formatter: '.formatHistoryText'}" class="timelineText"/>
+                    <Text text="{hist>changedBy}" class="timelineUser"/>
                   </VBox>
                 </HBox>
               </CustomListItem>

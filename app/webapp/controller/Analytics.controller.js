@@ -10,7 +10,7 @@ sap.ui.define([
   // (resolved) — matches the navy/green semantics already used elsewhere
   // in the app (e.g. the "Confirmed"/"Closed" KPI tile accents).
   var TREND_PALETTE = ["#1d4ed8", "#22c55e"];
-  
+
   var TREND_DAYS_DEFAULT = 14;
 
   // SLA response/resolution windows per priority code, in hours — same
@@ -39,6 +39,12 @@ sap.ui.define([
 
       this._iTrendDays = TREND_DAYS_DEFAULT;
 
+      // code -> name, for the side ticket table's Status/Priority columns
+      // (plain string fields now, no more association to expand).
+      this._mStatusName = {};
+      this._mPriorityName = {};
+      this._loadLookupMaps();
+
       // Data labels on the bars so counts read at a glance even for a
       // single spiky day, instead of needing a hover to see the number.
       // Title off — VizFrame shows a "Title of Chart" placeholder by
@@ -53,6 +59,28 @@ sap.ui.define([
         .getRoute("analytics")
         .attachPatternMatched(this._onMatched, this);
     },
+
+    _loadLookupMaps: function () {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+
+      function loadType(sType, oTarget) {
+        var oBinding = oModel.bindList("/LookupValues", null, [], [
+          new Filter("lookupType", FilterOperator.EQ, sType)
+        ]);
+        return oBinding.requestContexts(0, 999).then(function (aCtx) {
+          aCtx.forEach(function (c) { oTarget[c.getProperty("code")] = c.getProperty("name"); });
+        });
+      }
+
+      Promise.all([
+        loadType("STATUS", that._mStatusName),
+        loadType("PRIORITY", that._mPriorityName)
+      ]).catch(function () { /* best-effort */ });
+    },
+
+    formatStatusName: function (sCode) { return this._mStatusName[sCode] || sCode || ""; },
+    formatPriorityName: function (sCode) { return this._mPriorityName[sCode] || sCode || ""; },
 
     _onMatched: function () {
       this._loadTrends();
@@ -74,8 +102,8 @@ sap.ui.define([
     _loadTrends: function () {
       var that = this;
       var oModel = this.getOwnerComponent().getModel();
-      var oIncB = oModel.bindList("/Incident", null, [], [], {
-        $select: "ID,createdAt,completedOn"
+      var oIncB = oModel.bindList("/Tickets", null, [], [], {
+        $select: "ticketID,createdAt,completedAt"
       });
 
       oIncB.requestContexts(0, 9999).then(function (aContexts) {
@@ -98,7 +126,7 @@ sap.ui.define([
 
         aContexts.forEach(function (oCtx) {
           var sCreated = oCtx.getProperty("createdAt");
-          var sResolved = oCtx.getProperty("completedOn");
+          var sResolved = oCtx.getProperty("completedAt");
           if (sCreated && mByKey[sCreated.slice(0, 10)]) { mByKey[sCreated.slice(0, 10)].created++; }
           if (sResolved && mByKey[sResolved.slice(0, 10)]) { mByKey[sResolved.slice(0, 10)].resolved++; }
         });
@@ -113,38 +141,19 @@ sap.ui.define([
     /* ---------------------------------------------------------
      * Top KPI row + SLA compliance (met vs breached, per priority) + the
      * "At Risk" list (open tickets due soon but not yet breached). One
-     * Incident fetch covers all three — flat fields only, foreign keys
-     * mapped to codes via Lookup, same as the dashboard's _loadCounts
-     * (nested getProperty("x/code") on an expand isn't reliable in this
-     * v4 model).
+     * Ticket fetch covers all three — status/priority are plain string
+     * fields now, so no more Lookup-ID indirection is needed to get a code
+     * (unlike before this rewrite).
      * ------------------------------------------------------- */
     _loadStatsAndSla: function () {
       var that = this;
       var oModel = this.getOwnerComponent().getModel();
 
-      var oStatusB = oModel.bindList("/Lookup", null, [], [
-        new Filter("lookupType", FilterOperator.EQ, "STATUS")
-      ], { $select: "ID,code" });
-
-      var oPriB = oModel.bindList("/Lookup", null, [], [
-        new Filter("lookupType", FilterOperator.EQ, "PRIORITY")
-      ], { $select: "ID,code" });
-
-      var oIncB = oModel.bindList("/Incident", null, [], [], {
-        $select: "ID,incidentNumber,shortDescription,status_ID,priority_ID,messageProcessor,createdAt,firstResponseOn,completedOn"
+      var oIncB = oModel.bindList("/Tickets", null, [], [], {
+        $select: "ticketID,ticketNumber,shortDescription,status,priority,messageProcessor,createdAt,firstResponseAt,completedAt"
       });
 
-      Promise.all([
-        oStatusB.requestContexts(0, 999),
-        oPriB.requestContexts(0, 999),
-        oIncB.requestContexts(0, 9999)
-      ]).then(function (aRes) {
-        var mStatusCode = {};
-        aRes[0].forEach(function (c) { mStatusCode[c.getProperty("ID")] = c.getProperty("code"); });
-        var mPriCode = {};
-        aRes[1].forEach(function (c) { mPriCode[c.getProperty("ID")] = c.getProperty("code"); });
-
-        var aInc = aRes[2];
+      oIncB.requestContexts(0, 9999).then(function (aInc) {
         var iClosed = 0;
         var iResSum = 0, iResCount = 0;
         var iOldestOpenAge = null;
@@ -175,8 +184,7 @@ sap.ui.define([
         var mMetricWeek = { unassigned: { thisWeek: 0, lastWeek: 0 }, breached: { thisWeek: 0, lastWeek: 0 }, atRisk: { thisWeek: 0, lastWeek: 0 } };
 
         aInc.forEach(function (oCtx) {
-          var sStatusId = oCtx.getProperty("status_ID");
-          if (mStatusCode[sStatusId] === "CLOSED") { iClosed++; }
+          if (oCtx.getProperty("status") === "CLOSED") { iClosed++; }
 
           var sCreated = oCtx.getProperty("createdAt");
           var sBucket = weekBucket(sCreated);
@@ -186,7 +194,7 @@ sap.ui.define([
             bump(mMetricWeek, "unassigned", sBucket);
           }
 
-          var sCompleted = oCtx.getProperty("completedOn");
+          var sCompleted = oCtx.getProperty("completedAt");
           if (sCreated && sCompleted) {
             iResSum += (new Date(sCompleted).getTime() - new Date(sCreated).getTime());
             iResCount++;
@@ -197,10 +205,9 @@ sap.ui.define([
             if (iOldestOpenAge === null || iAge > iOldestOpenAge) { iOldestOpenAge = iAge; }
           }
 
-          var sPriId = oCtx.getProperty("priority_ID");
-          var sCode = sPriId && mPriCode[sPriId];
+          var sCode = oCtx.getProperty("priority");
           if (sCode && mByPriority[sCode]) {
-            var sFirstResponse = oCtx.getProperty("firstResponseOn");
+            var sFirstResponse = oCtx.getProperty("firstResponseAt");
             var oResult = that._computeSlaDetail(sCode, sCreated, sFirstResponse, sCompleted);
             if (oResult.state === "Error") {
               mByPriority[sCode].breached++;
@@ -212,8 +219,8 @@ sap.ui.define([
             if (!sCompleted && oResult.state === "Warning") {
               bump(mMetricWeek, "atRisk", sBucket);
               aAtRisk.push({
-                ID: oCtx.getProperty("ID"),
-                incidentNumber: oCtx.getProperty("incidentNumber"),
+                ticketID: oCtx.getProperty("ticketID"),
+                ticketNumber: oCtx.getProperty("ticketNumber"),
                 shortDescription: oCtx.getProperty("shortDescription"),
                 priority: sCode,
                 deadline: oResult.deadline,
@@ -328,14 +335,14 @@ sap.ui.define([
       var oItem = oEvent.getParameter("listItem") || oEvent.getSource();
       var oCtx = oItem.getBindingContext();
       if (oCtx) {
-        this.getOwnerComponent().getRouter().navTo("detail", { id: oCtx.getProperty("ID") });
+        this.getOwnerComponent().getRouter().navTo("detail", { id: oCtx.getProperty("ticketID") });
       }
     },
 
     onAtRiskPress: function (oEvent) {
       var oCtx = oEvent.getSource().getBindingContext("an");
       if (oCtx) {
-        this.getOwnerComponent().getRouter().navTo("detail", { id: oCtx.getProperty("ID") });
+        this.getOwnerComponent().getRouter().navTo("detail", { id: oCtx.getProperty("ticketID") });
       }
     },
 
@@ -346,38 +353,41 @@ sap.ui.define([
       return isNaN(oDate.getTime()) ? "" : oDate.toLocaleString();
     },
 
-    formatStatusState: function (sName) {
-      switch (sName) {
-        case "New": return "Information";
-        case "In Process": return "Warning";
-        case "Customer Action": return "Error";
-        case "Solution Proposed": return "Warning";
-        case "Confirmed": return "Success";
-        case "Closed": return "Success";
+    // Status/Priority -> sap.ui.core.ValueState. Keys off the plain code
+    // now (not a display name) — see db/schema.cds.
+    formatStatusState: function (sCode) {
+      switch (sCode) {
+        case "NEW": return "Information";
+        case "IN_PROCESS": return "Warning";
+        case "CUSTOMER_ACTION": return "Error";
+        case "SOLUTION_PROPOSED": return "Warning";
+        case "CONFIRMED": return "Success";
+        case "CLOSED": return "Success";
         default: return "None";
       }
     },
 
-    formatPriorityState: function (sName) {
-      if (!sName) { return "None"; }
-      if (sName.indexOf("P1") === 0) { return "Error"; }
-      if (sName.indexOf("P2") === 0) { return "Warning"; }
-      if (sName.indexOf("P3") === 0) { return "Information"; }
-      return "None";
+    formatPriorityState: function (sCode) {
+      switch (sCode) {
+        case "P1": return "Error";
+        case "P2": return "Warning";
+        case "P3": return "Information";
+        default: return "None";
+      }
     },
 
-    formatSlaState: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
-      return this._computeSlaDetail(sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn).state;
+    formatSlaState: function (sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt) {
+      return this._computeSlaDetail(sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt).state;
     },
 
-    formatSlaText: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
-      return this._computeSlaDetail(sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn).text;
+    formatSlaText: function (sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt) {
+      return this._computeSlaDetail(sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt).text;
     },
 
     // Same response/resolution-window logic as the per-ticket SLA badges
     // on the dashboard/Main controllers — used both for the ticket table's
     // SLA column here and (state only) for the compliance summary above.
-    _computeSlaDetail: function (sPriorityCode, sCreatedAt, sFirstResponseOn, sCompletedOn) {
+    _computeSlaDetail: function (sPriorityCode, sCreatedAt, sFirstResponseAt, sCompletedAt) {
       var oWindow = SLA_HOURS[sPriorityCode];
       if (!oWindow || !sCreatedAt) { return { state: "None", text: "-" }; }
 
@@ -385,14 +395,14 @@ sap.ui.define([
       var iCreated = new Date(sCreatedAt).getTime();
       var iNow = Date.now();
 
-      if (sCompletedOn) {
+      if (sCompletedAt) {
         var iResolveBy = iCreated + oWindow.resolution * HOUR;
-        return new Date(sCompletedOn).getTime() <= iResolveBy
+        return new Date(sCompletedAt).getTime() <= iResolveBy
           ? { state: "Success", text: "SLA Met" }
           : { state: "Error", text: "SLA Breached" };
       }
 
-      if (!sFirstResponseOn) {
+      if (!sFirstResponseAt) {
         var iResponseBy = iCreated + oWindow.response * HOUR;
         var iLeft = iResponseBy - iNow;
         if (iLeft < 0) { return { state: "Error", text: "Response Overdue", deadline: iResponseBy }; }

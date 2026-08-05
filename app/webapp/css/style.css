@@ -39,46 +39,114 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .submitBtn .sapMBtnContent, .submitBtn bdi, .submitBtn .sapUiIcon { color:#fff !important; }
 .submitBtn:hover .sapMBtnInner { background:#1d4ed8 !important; border-color:#1d4ed8 !important; }
 
-/* ---- Change-history timeline: a plain sap.m List styled to read as a
-   connected vertical timeline (sap.m.Timeline isn't in this UI5 build). ---- */
+/* ---- Change-history timeline: laid out as horizontal step cards that
+   wrap onto new rows once they run out of width, instead of one long
+   vertical column (sap.m.Timeline isn't in this UI5 build, and the List's
+   own items are block-level, so the wrap/gap is applied to its own
+   items-UL rather than to the List control itself).
+   CSS Grid (not flex-grow) is what's driving the row layout — with flex's
+   own grow/shrink, each row distributes its own leftover width among just
+   that row's items, so a row of 3 stretches wider per-card than a row of
+   7, and column edges drift apart row to row. Grid's tracks are shared by
+   every row, so column N lines up vertically no matter how many items
+   land in each row.
+   The column count is a fixed 4 (not auto-fill) on purpose: the "hide the
+   connector at the start of every row" rule below needs to know exactly
+   which items are row-starters, via :nth-child(4n+1) — that only works
+   out with a fixed, known column count, not a responsive auto-fill one. */
+.timelineList .sapMListItems {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 10px;
+}
 .timelineList .sapMLIB {
+  display: block;
+  width: auto;
   border: none !important;
   background: transparent !important;
   padding: 0 !important;
 }
-.timelineRow { gap: 12px; align-items: flex-start; padding: 2px 0; }
-.timelineDot {
+.timelineItemWrap { width: 100%; }
+/* Trackline: a real connector element (line + arrowhead) that sits before
+   each card in normal document flow — not a pseudo-element hanging outside
+   the card via negative offset, which sap.m.List's own ripple/press effect
+   on .sapMLIB clips via overflow:hidden, making it invisible. Being real,
+   in-flow content, it can't be clipped that way. Hidden on the very first
+   step via the __first flag set in the controller (nothing feeds into the
+   start of the trail), and on every row-starter (column 1 of every row)
+   here via :nth-child, since those don't connect to anything on their own
+   row either. */
+.timelineList .sapMLIB:nth-child(4n+1) .timelineConnector {
+  display: none;
+}
+.timelineConnector {
+  flex: none;
+  width: 26px;
+  height: 24px;
   position: relative;
+}
+.timelineConnectorLine {
+  width: 17px;
+  height: 3px;
+  background: #2563eb;
+  border-radius: 2px;
+}
+.timelineConnectorLine::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 17px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 9px solid #2563eb;
+}
+.timelineStep {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #f8f9fc;
+  border: 1px solid #eef1fb;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.timelineStepHead { gap: 8px; margin-bottom: 4px; }
+.timelineStepHeadText { min-width: 0; }
+.timelineDot {
   flex: none;
   width: 24px; height: 24px;
   border-radius: 50%;
   background: #2563eb; color: #fff !important;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px;
-  margin-top: 2px;
-}
-.timelineDot::after {
-  content: ''; position: absolute; top: 26px; left: 50%;
-  width: 2px; height: 42px; transform: translateX(-50%);
-  background: #e5e7eb;
-}
-.timelineList .sapMLIB:last-child .timelineDot::after { display: none; }
-.timelineBody {
-  flex: 1; min-width: 0;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #f1f4ff;
-  margin-bottom: 2px;
 }
 .timelineTitle { font-weight: 700; color: #1e2a5e; font-size: 13px; }
 .timelineDate { color: #9ca3af; font-size: 11px; white-space: nowrap; }
 .timelineText { color: #374151; font-size: 13px; margin-top: 2px; }
-.timelineUser { color: #6b7280; font-size: 11px; margin-top: 2px; }
+.timelineUser { color: #6b7280; font-size: 11px; margin-top: 6px; }
 
 .uploadCard {
   background:#fff; border-radius:14px; padding:28px; text-align:center;
   margin-bottom: 12px;
   box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
+
+/* ---- Attachments: note banner + count/upload row + document table ---- */
+.attachmentsNote { margin-bottom: 12px; border-radius: 8px; }
+.attachmentsToolbar { margin-bottom: 8px; }
+.attachmentsCount { font-weight: 600; color: #1e2a5e; font-size: 13px; }
+.attachmentsUploadBtn .sapMBtnInner {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+.attachmentsUploadBtn .sapMBtnContent, .attachmentsUploadBtn bdi, .attachmentsUploadBtn .sapUiIcon {
+  color: #2563eb !important;
+  font-weight: 600;
+}
+.attachmentsTable .attachmentsColHead { font-weight: 700; color: #1e2a5e; font-size: 13px; }
+.attachmentsTable .sapMListTblHeader { background: #f8f9fc; }
 
 /* View mode: fields are read-only already, but fade the whole section too
    so it visibly reads as "look, don't touch" until Edit is pressed. */
@@ -136,7 +204,7 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .pageTicketId {
   color: #1e2a5e !important;
   font-size: 13px !important;
-  font-weight: 700 !important;
+  font-weight: 900 !important;
 }
 .pageSubtitle {
   color: #6b7280 !important;
@@ -156,6 +224,7 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .appHeader .sapMBtn:hover .sapMBtnInner {
   background: rgba(255,255,255,.16) !important;
   border-color: transparent !important;
+
 }
 
 /* Reset / View All Tickets: solid white pill so they read as actions in
@@ -284,18 +353,20 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 }
 .chartPane .sectionPill { margin-bottom: 8px; }
 
-/* Collapsed: shrink the whole card down to a thin strip holding just the
-   toggle button, handing its width back to the table pane next to it. */
+/* Collapsed (table expanded): hide the whole card away completely —
+   the toggle now lives on the table's toolbar (tableExpandBtn), so there's
+   no strip/button left poking out on this side. */
 .chartPane.chartCollapsed {
-  flex: 0 0 44px;
-  min-width: 44px;
-  padding: 12px 6px;
+  flex: 0 0 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: none;
 }
-.chartPane.chartCollapsed .sectionPill,
+.chartPane.chartCollapsed .chartHeadRow,
 .chartPane.chartCollapsed .chartBody {
   display: none;
 }
-.chartToggleBtn .sapUiIcon { color: #6b7280 !important; }
 
 .chartHeadActions { gap: 4px; }
 .analyticsBtn .sapMBtnInner {
@@ -409,3 +480,95 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 }
 .headerTitle { font-size: 19px; line-height: 1.25; }
 .headerSub { margin-top: 1px; }
+
+/* ---- form section headings (Panel headerText): darker + bolder so they
+   stand out clearly against the card body instead of blending in ---- */
+.sectionCard > .sapMPanelWrappingDiv > .sapMPanelHdr,
+.sectionCard > .sapMPanelWrappingDivTb .sapMPanelHdr {
+  color: #1e2a5e !important;
+  font-weight: 700 !important;
+}
+
+/* ---- short "Description" (General Data): cap the width so it doesn't
+   stretch full page width and eat all the horizontal space. ---- */
+.descriptionArea {
+  width: 100% !important;
+  max-width: 480px !important;
+}
+/* ---- "Full Description" (Relationships & Description): same resting
+   height as .descriptionArea above (both are rows="2" in the view) but
+   deliberately NOT the same 480px cap — this one already spans the whole
+   row via .formFieldWide, so let it actually fill that width instead of
+   leaving blank space beside a narrow box. */
+.fullDescriptionArea {
+  width: 100% !important;
+}
+
+/* ---- form sections (General Data & Category Assignment, Processing Data
+   & Dates, Relationships & Description): CSS Grid instead of
+   sap.ui.layout.form's ColumnLayout, whose column count only steps
+   between a handful of fixed S/M/L/XL breakpoints.
+
+   The actual grid item is NOT .formField — sap.m.FlexBox (VBox's base
+   class) wraps every child in its own ".sapMFlexItem" div (see
+   FlexBoxRenderer#renderItem), so that wrapper, one level above
+   .formField, is what CSS Grid sizes/places. Sizing rules belong on it:
+   a plain ".formField" selector never reaches the real grid item, so the
+   field would fall back to its default implied "min-width:auto" (sized
+   to its content's min-content width) and never wrap/span correctly.
+
+   A section is not required to fit all of its fields on one row — extra
+   fields wrap onto further rows via CSS Grid's normal auto-placement, no
+   extra markup needed.
+
+   The track size is minmax(max(140px, (100% - 3*16px) / 4), 1fr), not a
+   plain minmax(140px, 1fr): plain auto-fill has no ceiling, so once the
+   card is wide enough it keeps adding a 5th, 6th... column instead of
+   capping at 4 — on a wide monitor at ordinary 100% zoom that already
+   overshoots 4-per-row. The max(140px, (100% - 3 gaps)/4) term is exactly
+   the width 4 columns would need to fill the row, so once the card is
+   wide enough for that to beat the 140px floor, every track locks to
+   1/4 of the row and auto-fill can only ever place 4 of them — zooming
+   out further just keeps it at 4, it can't add a 5th. Below that width
+   (zoomed in, or a narrow viewport) the 140px floor takes over instead
+   and auto-fill drops to 3, then 2, then 1 column as space keeps
+   shrinking, same live reflow as before. Every section shares this exact
+   formula, so column 1 still sits at the same x in all three merged
+   sections alike at any given width/zoom level. */
+.formGrid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(max(140px, (100% - 3 * 16px) / 4), 1fr));
+  gap: 14px 16px;
+  width: 100%;
+}
+.formGrid > .sapMFlexItem {
+  min-width: 0;
+}
+.formGrid > .sapMFlexItem:has(.formFieldWide) {
+  grid-column: 1 / -1;
+}
+.formField .sapMLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+/* ---- SLA: a plain sap.m.ObjectStatus renders as bare colored text with
+   no box around it, so next to Input/Select's own bordered boxes that
+   cell just looked empty — give it the same kind of box as its siblings,
+   sized to roughly match their height, and let the status color/icon
+   (Success/Warning/Error, set by the formatter via UI5's own state
+   classes) show through inside it. */
+.slaStatusBox {
+  display: inline-flex !important;
+  align-items: center;
+  min-height: 2.25rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 12px;
+  background: #f8f9fc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}

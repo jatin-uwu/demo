@@ -9,12 +9,17 @@ a3000000-0000-4000-8000-000000000001,PRIORITY,P1,P1 - Very High,Immediate respon
 a3000000-0000-4000-8000-000000000002,PRIORITY,P2,P2 - High,Response within 4 hours,,20,false,true
 a3000000-0000-4000-8000-000000000003,PRIORITY,P3,P3 - Medium,Response within 1 business day,,30,true,true
 a3000000-0000-4000-8000-000000000004,PRIORITY,P4,P4 - Low,Response within 5 business days,,40,false,true
+a4000000-0000-4000-8000-000000000000,STATUS,DRAFT,Draft,Ticket saved but not yet submitted,,5,false,true
 a4000000-0000-4000-8000-000000000001,STATUS,NEW,New,Ticket has been created,,10,true,true
 a4000000-0000-4000-8000-000000000002,STATUS,IN_PROCESS,In Process,Being worked on by support,,20,false,true
 a4000000-0000-4000-8000-000000000003,STATUS,CUSTOMER_ACTION,Customer Action,Waiting on the reporter,,30,false,true
 a4000000-0000-4000-8000-000000000004,STATUS,SOLUTION_PROPOSED,Solution Proposed,Fix proposed awaiting confirmation,,40,false,true
 a4000000-0000-4000-8000-000000000005,STATUS,CONFIRMED,Confirmed,Reporter confirmed the fix,,50,false,true
 a4000000-0000-4000-8000-000000000006,STATUS,CLOSED,Closed,Ticket closed,,60,false,true
+a5000000-0000-4000-8000-000000000001,TICKETTYPE,INCIDENT,Incident,Unplanned interruption or reduction in service quality,,10,true,true
+a5000000-0000-4000-8000-000000000002,TICKETTYPE,SERVICE_REQUEST,Service Request,Routine request for something new to be provisioned,,20,false,true
+a5000000-0000-4000-8000-000000000003,TICKETTYPE,PROBLEM,Problem,Underlying cause of one or more incidents,,30,false,true
+a5000000-0000-4000-8000-000000000004,TICKETTYPE,CHANGE,Change,Planned addition modification or removal of a service,,40,false,true
 c1000000-0000-4000-8000-000000000001,SOLUTION,FIXED,Permanent Fix,Root cause resolved,,10,false,true
 c1000000-0000-4000-8000-000000000002,SOLUTION,WORKAROUND,Workaround Provided,Temporary measure in place,,20,false,true
 c1000000-0000-4000-8000-000000000003,SOLUTION,REPLACED,Hardware Replaced,Faulty part swapped out,,30,false,true

@@ -19,15 +19,15 @@
         <Title text="Service Desk Dashboard" class="appHeaderTitle"/>
       </contentMiddle>
       <contentRight>
-        <Button icon="sap-icon://action-settings" tooltip="Choose which 7 KPI tiles to show" type="Transparent"
+        <Button icon="sap-icon://action-settings" tooltip="Choose which 6 KPI tiles to show" type="Transparent"
                 class="headerActionBtn" press=".onManageTiles"/>
       </contentRight>
     </Bar>
 
-    <!-- ===== KPI tile picker: choose exactly 7 tiles from the full pool
+    <!-- ===== KPI tile picker: choose exactly 6 tiles from the full pool
          (status/priority/SLA-metric tiles). Save disabled until exactly
-         7 are checked. ===== -->
-    <Dialog id="tilePickerDialog" title="Choose 7 KPI Tiles" contentWidth="26rem" contentHeight="28rem">
+         6 are checked. ===== -->
+    <Dialog id="tilePickerDialog" title="Choose 6 KPI Tiles" contentWidth="26rem" contentHeight="28rem">
       <Text text="{= ${tp>/selectedCount} + ' of ' + ${tp>/tileCount} + ' selected'}" class="sapUiSmallMargin tilePickerCount"/>
       <List id="tilePickerList" mode="MultiSelect" items="{tp>/allTiles}" selectionChange=".onTilePickerSelectionChange">
         <StandardListItem title="{tp>label}" selected="{tp>selected}"/>
@@ -69,6 +69,29 @@
       </endButton>
     </Dialog>
 
+    <!-- ===== Bulk assign dialog: engineer and/or team, for the selected
+         Tickets. Backed by the assignTickets() action (ServiceGroup only). ===== -->
+    <Dialog id="assignDialog" title="Assign Selected Tickets" contentWidth="24rem">
+      <VBox class="sapUiSmallMargin">
+        <Label text="Message Processor (engineer)"/>
+        <Select id="assignProcessorSelect" forceSelection="false" width="100%"
+                items="{ path: '/Users', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
+          <core:Item key="{userId}" text="{name}"/>
+        </Select>
+        <Label text="Support Team" class="sapUiSmallMarginTop"/>
+        <Select id="assignTeamSelect" forceSelection="false" width="100%"
+                items="{ path: '/SupportTeams', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
+          <core:Item key="{teamCode}" text="{name}"/>
+        </Select>
+      </VBox>
+      <beginButton>
+        <Button text="Assign" type="Emphasized" press=".onConfirmAssign"/>
+      </beginButton>
+      <endButton>
+        <Button text="Cancel" press=".onCancelAssign"/>
+      </endButton>
+    </Dialog>
+
     <!-- ===== KPI tiles: one line, equal flexible width =====
          Accent/selection classes are applied in the controller via
          addStyleClass (see onTilesUpdated) — binding the "class"
@@ -105,10 +128,12 @@
           growing="true"
           growingThreshold="50"
           sticky="ColumnHeaders,HeaderToolbar"
+          mode="MultiSelect"
+          selectionChange=".onTableSelectionChange"
           items="{
-            path: '/Incident',
+            path: '/Tickets',
             parameters: {
-              $expand: 'status($select=name),priority($select=name,code),category1($select=name),impact($select=name),urgency($select=name)',
+              $expand: 'incidentForm($select=category1,impact,urgency)',
               $orderby: 'createdAt desc'
             }
           }"
@@ -139,6 +164,17 @@
               <SearchField width="16rem" placeholder="Search # or description" search=".onSearch" liveChange=".onSearch"/>
               <Button icon="sap-icon://action-settings" tooltip="Table settings: choose filters and columns" press=".onManageTableSettings"/>
               <Button text="Reset" icon="sap-icon://clear-filter" press=".onResetFilters"/>
+              <Button id="tableExpandBtn" icon="sap-icon://full-screen" tooltip="Expand table" type="Transparent"
+                      press=".onToggleTableExpand" class="tableExpandBtn"/>
+              <MenuButton text="More" icon="sap-icon://action" enabled="{sel>/hasSelection}">
+                <menu>
+                  <Menu>
+                    <MenuItem text="Submit Selected" icon="sap-icon://accept" press=".onBulkSubmit"/>
+                    <MenuItem text="Delete Selected" icon="sap-icon://delete" press=".onBulkDelete"/>
+                    <MenuItem text="Assign Selected" icon="sap-icon://key-user-settings" press=".onBulkAssign" visible="{sel>/isServiceGroup}"/>
+                  </Menu>
+                </menu>
+              </MenuButton>
               <Button text="New Ticket" icon="sap-icon://add" class="submitBtn" press=".onCreateTicket"/>
             </OverflowToolbar>
           </headerToolbar>
@@ -159,17 +195,17 @@
           <items>
             <ColumnListItem type="Navigation" press=".onTicketPress">
               <cells>
-                <ObjectIdentifier title="{incidentNumber}"/>
+                <ObjectIdentifier title="{ticketNumber}"/>
                 <Text text="{shortDescription}"/>
-                <ObjectStatus text="{status/name}" state="{path: 'status/name', formatter: '.formatStatusState'}"/>
-                <ObjectStatus text="{priority/name}" state="{path: 'priority/name', formatter: '.formatPriorityState'}"/>
+                <ObjectStatus text="{path: 'status', formatter: '.formatStatusName'}" state="{path: 'status', formatter: '.formatStatusState'}"/>
+                <ObjectStatus text="{path: 'priority', formatter: '.formatPriorityName'}" state="{path: 'priority', formatter: '.formatPriorityState'}"/>
                 <ObjectStatus
-                  text="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaText'}"
-                  state="{parts: ['priority/code','createdAt','firstResponseOn','completedOn'], formatter: '.formatSlaState'}"/>
-                <Text text="{category1/name}"/>
-                <Text text="{impact/name}"/>
-                <Text text="{urgency/name}"/>
-                <Text text="{messageProcessor}"/>
+                  text="{parts: ['priority','createdAt','firstResponseAt','completedAt'], formatter: '.formatSlaText'}"
+                  state="{parts: ['priority','createdAt','firstResponseAt','completedAt'], formatter: '.formatSlaState'}"/>
+                <Text text="{path: 'incidentForm/category1', formatter: '.formatCategoryName'}"/>
+                <Text text="{path: 'incidentForm/impact', formatter: '.formatImpactName'}"/>
+                <Text text="{path: 'incidentForm/urgency', formatter: '.formatUrgencyName'}"/>
+                <Text text="{path: 'messageProcessor', formatter: '.formatUserName'}"/>
                 <Text text="{ path: 'createdAt', formatter: '.formatDateTime' }"/>
               </cells>
             </ColumnListItem>
@@ -177,21 +213,20 @@
         </Table>
       </VBox>
 
-      <!-- CHART: collapsible card (toggle slides it shut left-to-right,
-           handing its width back to the table). The chart's own legend is
-           off (it overflowed into a horizontal scrollbar with several
-           categories) — a custom color key sits beside the (now narrower,
-           left-shifted) donut instead, plus hover tooltip on the slices
-           themselves, and the ranked list below repeats it all as exact
-           counts + share. -->
+      <!-- CHART: collapsible card — the "Expand table" button lives on the
+           table's toolbar instead (see tableExpandBtn above) so there's no
+           leftover strip/button poking out on this side when it's hidden.
+           The chart's own legend is off (it overflowed into a horizontal
+           scrollbar with several categories) — a custom color key sits
+           beside the (now narrower, left-shifted) donut instead, plus hover
+           tooltip on the slices themselves, and the ranked list below
+           repeats it all as exact counts + share. -->
       <VBox id="chartPane" class="chartPane">
-        <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%">
+        <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%" class="chartHeadRow">
           <Text text="CATEGORY-WISE BREAKDOWN" class="sectionPill"/>
           <HBox alignItems="Center" class="chartHeadActions">
             <Button icon="sap-icon://line-chart" type="Transparent"
                     tooltip="Open analytics dashboard" press=".onGoAnalytics" class="analyticsBtn"/>
-            <Button id="chartToggleBtn" icon="sap-icon://slim-arrow-right" type="Transparent"
-                    tooltip="Collapse chart" press=".onToggleChart" class="chartToggleBtn"/>
           </HBox>
         </HBox>
         <VBox class="chartBody">

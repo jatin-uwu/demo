@@ -1,0 +1,6 @@
+ID,ticket_ticketID,description,category1,category2,category3,category4,solutionCategory,impact,urgency,recommendedPriority,language,isStandard,system,softwareComponent,softwareVersion,supportPackage,configurationItem,relatedRFC,irtStatus,mptStatus
+d1000000-0000-4000-8000-000000000001,INC-0000001,User reports Outlook is unable to send any outbound mail since this morning.,SOFTWARE,MSOFFICE,OFF_OUTLOOK,,,MEDIUM,MEDIUM,P2,EN,false,,,,,,,,
+d1000000-0000-4000-8000-000000000002,INC-0000002,Monitoring shows the production application server is not responding to health checks.,SOFTWARE,SERVER,SV_DOWN,,,HIGH,HIGH,P1,EN,false,SAP_ECC,BASIS,,,CI-0001,,,
+d1000000-0000-4000-8000-000000000003,INC-0000003,New hire needs SAP Fiori launchpad access provisioned before their start date.,SOFTWARE,SAP,SAP_FIORI,,FIXED,LOW,LOW,P3,EN,true,SAP_S4,,,,,,,
+d1000000-0000-4000-8000-000000000004,INC-0000004,Laptop battery drains from full to empty within about two hours of unplugged use.,HARDWARE,LAPTOP,LT_BATTERY,,,LOW,LOW,P4,EN,false,,,,,,,,
+d1000000-0000-4000-8000-000000000005,INC-0000005,VPN client disconnects every few minutes when working from home.,NETWORK,VPN,VPN_DROP,,,MEDIUM,HIGH,P2,EN,false,,,,,,,,

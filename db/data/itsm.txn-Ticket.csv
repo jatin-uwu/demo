@@ -1,0 +1,6 @@
+ticketID,ticketNumber,ticketType,shortDescription,status,priority,reportedBy,messageProcessor,supportTeam,firstResponseAt,dueAt,completedAt
+INC-0000001,INC-0000001,INCIDENT,Outlook not sending emails,NEW,P2,sachin,virat,SD-L1,,,
+INC-0000002,INC-0000002,INCIDENT,Production server unreachable,IN_PROCESS,P1,virat,virat,SD-L2,2026-07-31T18:24:58.635Z,,
+INC-0000003,INC-0000003,INCIDENT,New joiner needs SAP Fiori access,CLOSED,P3,aayush,sachin,APP-SUP,2026-07-30T09:10:00.000Z,,2026-07-31T00:07:13.000Z
+INC-0000004,INC-0000004,INCIDENT,Laptop battery drains quickly,DRAFT,,virat,,,,,
+INC-0000005,INC-0000005,INCIDENT,VPN keeps disconnecting,CUSTOMER_ACTION,P2,sarthak,deepak,NET-OPS,2026-08-01T10:00:00.000Z,,
