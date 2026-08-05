@@ -441,8 +441,9 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .atRiskDesc { font-size: 12px; color: #6b7280; margin-top: 1px; }
 .atRiskDue { font-size: 11px; color: #b45309; font-weight: 700; margin-top: 3px; }
 
-/* ---- table headings: bolder, slightly larger, + a faint navy-family
-   tint so they separate clearly from the data rows ---- */
+/* ---- table headings: bolder, clearly larger than the 14px row text,
+   + a faint navy-family tint so they separate clearly from the data
+   rows and actually read as headings instead of matching body text. ---- */
 .sapMListTblHeader,
 .sapMListTblHeader.sapMListTblRow {
   background: #f1f4ff;
@@ -450,7 +451,7 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .sapMListTblHeaderCell,
 .sapMListTblHeaderCell .sapMText {
   font-weight: 700 !important;
-  font-size: 14px !important;
+  font-size: 16px !important;
   color: #1e2a5e;
 }
 
@@ -459,11 +460,19 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
    declared width instead of being squeezed to fit — the table scrolls
    horizontally within .tablePane (already overflow:auto) once the
    columns' combined width exceeds it, rather than wrapping/garbling
-   text. ---- */
+   text.
+   table-layout:fixed (sap.m.Table's own default — we're reinstating it,
+   not introducing it) reads every column's width once from the header
+   row and reuses it for the body, so the header and body checkboxes
+   are structurally the same column and can't drift apart. width:auto
+   (no 100%/min-width forcing) keeps the table sized to the sum of the
+   declared column widths instead of stretching to fill .tablePane —
+   that stretching was what redistributed spare width into the
+   selection column (header AND body alike) once "Expand table"
+   collapsed the chart card and .tablePane grew wider. ---- */
 #dashTable .sapMListTbl {
-  table-layout: auto;
+  table-layout: fixed;
   width: auto;
-  min-width: 100%;
 }
 #dashTable .sapMListTblCell,
 #dashTable .sapMListTblHeaderCell {

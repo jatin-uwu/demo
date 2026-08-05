@@ -120,9 +120,9 @@ sap.ui.define([
       // columns (see FILTER_POOL / COLUMN_POOL above).
       this.getView().setModel(new JSONModel(this._buildColsVisibility()), "cols");
 
-      // Drives the "More" menu button's enabled state and the
-      // ServiceGroup-only "Assign Selected" item's visibility.
-      this.getView().setModel(new JSONModel({ hasSelection: false, isServiceGroup: false }), "sel");
+      // Drives the "Delete" button's enabled state: canDelete is only
+      // true when every selected row is a Draft ticket.
+      this.getView().setModel(new JSONModel({ hasSelection: false, canDelete: false, isServiceGroup: false }), "sel");
       this._loadCurrentUser();
 
       // code -> name maps for the plain-string fields (status/priority/
@@ -710,10 +710,16 @@ sap.ui.define([
       }
 
       if (this._sSearch) {
+        // caseSensitive:false — not a manual tolower(path) hack (that broke
+        // the v4 binding's metadata type lookup for the filter path and
+        // killed search entirely). This is the framework's own supported
+        // option: it wraps both the property and the value in tolower()
+        // itself when it builds the request, so the path stays a real
+        // property and type resolution still works.
         aFilters.push(new Filter({
           filters: [
-            new Filter("ticketNumber", FilterOperator.Contains, this._sSearch),
-            new Filter("shortDescription", FilterOperator.Contains, this._sSearch)
+            new Filter({ path: "ticketNumber", operator: FilterOperator.Contains, value1: this._sSearch, caseSensitive: false }),
+            new Filter({ path: "shortDescription", operator: FilterOperator.Contains, value1: this._sSearch, caseSensitive: false })
           ],
           and: false
         }));
@@ -743,12 +749,18 @@ sap.ui.define([
     },
 
     /* ---------------------------------------------------------
-     * Row selection (checkboxes) — just tracks whether the "More"
-     * menu button should be enabled.
+     * Row selection (checkboxes) — tracks whether the "Delete" button
+     * should be enabled. It only lights up when every selected row is
+     * a Draft ticket; a single non-Draft in the selection fades it
+     * out, matching the Draft-only rule onBulkDelete enforces.
      * ------------------------------------------------------- */
     onTableSelectionChange: function () {
       var aContexts = this.byId("dashTable").getSelectedContexts();
+      var bAllDraft = aContexts.length > 0 && aContexts.every(function (oCtx) {
+        return oCtx.getObject().status === STATUS_DRAFT;
+      });
       this.getView().getModel("sel").setProperty("/hasSelection", aContexts.length > 0);
+      this.getView().getModel("sel").setProperty("/canDelete", bAllDraft);
     },
 
     /* ---------------------------------------------------------

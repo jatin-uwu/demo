@@ -166,15 +166,7 @@
               <Button text="Reset" icon="sap-icon://clear-filter" press=".onResetFilters"/>
               <Button id="tableExpandBtn" icon="sap-icon://full-screen" tooltip="Expand table" type="Transparent"
                       press=".onToggleTableExpand" class="tableExpandBtn"/>
-              <MenuButton text="More" icon="sap-icon://action" enabled="{sel>/hasSelection}">
-                <menu>
-                  <Menu>
-                    <MenuItem text="Submit Selected" icon="sap-icon://accept" press=".onBulkSubmit"/>
-                    <MenuItem text="Delete Selected" icon="sap-icon://delete" press=".onBulkDelete"/>
-                    <MenuItem text="Assign Selected" icon="sap-icon://key-user-settings" press=".onBulkAssign" visible="{sel>/isServiceGroup}"/>
-                  </Menu>
-                </menu>
-              </MenuButton>
+              <Button text="Delete" icon="sap-icon://delete" enabled="{sel>/canDelete}" press=".onBulkDelete"/>
               <Button text="New Ticket" icon="sap-icon://add" class="submitBtn" press=".onCreateTicket"/>
             </OverflowToolbar>
           </headerToolbar>
