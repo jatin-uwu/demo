@@ -52,7 +52,14 @@ async function beforeCreateTicket(req) {
  * that specific shape as "created".
  * ------------------------------------------------------- */
 async function afterCreateTicket(data, req) {
-    await logField(req, data.ticketID, 'status', null, data.status);
+    // CAP passes an array here (even for a single CREATE), and each row
+    // only carries its key — not the rest of the persisted fields — so
+    // the known STATUS_DRAFT constant is used directly rather than reading
+    // back a (missing) data.status.
+    const rows = Array.isArray(data) ? data : [data];
+    for (const row of rows) {
+        await logField(req, row.ticketID, 'status', null, STATUS_DRAFT);
+    }
 }
 
 
