@@ -68,8 +68,8 @@
     <!-- ===================== ROW 1: OVERLOAD | QUEUE | SLA ===================== -->
     <HBox class="analyticsRow sapUiTinyMarginTop" wrap="Wrap" width="100%" alignItems="Stretch">
 
-            <!-- 1. Work Queue Summary -->
-      <VBox class="sectionCard analyticsCard"><layoutData><FlexItemData growFactor="1" baseSize="0"/></layoutData>
+            <!-- 1. Work Queue Summary (kept ~same width) -->
+      <VBox class="sectionCard analyticsCard"><layoutData><FlexItemData growFactor="6" baseSize="0"/></layoutData>
         <HBox justifyContent="SpaceBetween" alignItems="Center">
           <Text text="WORK QUEUE SUMMARY" class="sectionPill"/>
           <Button text="Work queue" type="Transparent" icon="sap-icon://slim-arrow-right" iconFirst="false" press=".onGoTickets"/>
@@ -79,8 +79,8 @@
         </List>
       </VBox>
 
-      <!-- 2. Engineer Overload -->
-      <VBox class="sectionCard analyticsCard"><layoutData><FlexItemData growFactor="1" baseSize="0"/></layoutData>
+      <!-- 2. Engineer Overload (fixed to fit its table — no wasted space) -->
+      <VBox class="sectionCard analyticsCard"><layoutData><FlexItemData growFactor="0" shrinkFactor="0" baseSize="34rem"/></layoutData>
         <HBox justifyContent="SpaceBetween" alignItems="Center">
           <Text text="ENGINEER OVERLOAD" class="sectionPill"/>
           <Button text="View all" type="Transparent" icon="sap-icon://slim-arrow-right" iconFirst="false" press=".onGoTickets"/>
@@ -122,8 +122,8 @@
       </VBox>
 
 
-      <!-- 3. SLA Monitor -->
-      <VBox class="sectionCard analyticsCard"><layoutData><FlexItemData growFactor="1" baseSize="0"/></layoutData>
+      <!-- 3. SLA Monitor (widened using the space reclaimed from Engineer Overload) -->
+      <VBox class="sectionCard analyticsCard"><layoutData><FlexItemData growFactor="7" baseSize="0"/></layoutData>
         <Text text="SLA MONITOR" class="sectionPill"/>
         <!-- donut (~40%) beside the at-risk table (~60%), not stacked -->
         <HBox class="slaSplit" width="100%" alignItems="Start">

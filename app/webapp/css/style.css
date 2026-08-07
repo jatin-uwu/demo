@@ -105,8 +105,22 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .sgDash .opsTable .sapMObjectNumberText { font-size: 11.5px; }
 .sgDash .sectionCard > .sapMFlexBox .sapMBtn { min-height: 1.5rem; }
 .sgDash .sectionCard > .sapMFlexBox .sapMBtnInner { min-height: 1.5rem; padding-top: 0; padding-bottom: 0; }
-.sgDash .analyticsRow { gap: 8px; margin-bottom: 8px; }
-.sgDash .tileRow { margin: 6px 0 8px; }
+.sgDash .analyticsRow { gap: 6px; margin-bottom: 6px; }
+.sgDash .tileRow { gap: 6px; margin: 6px 0 6px; }
+/* A global rule gives every .sectionCard / .tileRow a 16px left+right margin,
+   which was adding ~32px BETWEEN adjacent cards (on top of the 6px flex gap).
+   Remove it inside the dashboard so the only spacing between cards is the gap. */
+.sgDash .tileRow, .sgDash .sectionCard { margin-left: 0 !important; margin-right: 0 !important; }
+/* The sap.m.Page scroll <section> is absolutely positioned edge-to-edge, so
+   the page's own padding never applies to it and the right-hand cards sit
+   flush against the viewport — the vertical scrollbar then overlays and clips
+   them. Pad the scroll container itself and reserve a stable scrollbar gutter
+   so the rightmost charts are never cut. */
+.sgDash .sapMPageEnableScrolling {
+  padding: 6px 14px 8px !important;
+  box-sizing: border-box;
+  scrollbar-gutter: stable;
+}
 /* trim the outer scroll padding a bit more */
 .sgDash.densePage.appBg { padding: 6px 14px 8px; }
 
