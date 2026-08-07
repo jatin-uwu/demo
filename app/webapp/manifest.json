@@ -82,9 +82,8 @@
   "dashboard": { "viewName": "Dashboard", "viewId": "dashboard" },
   "serviceGroupDashboard": { "viewName": "ServiceGroupDashboard", "viewId": "serviceGroupDashboard" },
   "sgTickets": { "viewName": "ServiceGroupTickets", "viewId": "sgTickets" },
-  "main": { "viewName": "Main", "viewId": "main" }
-  "analytics": { "viewName": "Analytics", "viewId": "analytics" },
   "main": { "viewName": "Main", "viewId": "main" },
+  "analytics": { "viewName": "Analytics", "viewId": "analytics" },
   "assigned": { "viewName": "AssignedTickets", "viewId": "assigned" },
   "assignedDetail": { "viewName": "ConsultantTicket", "viewId": "assignedDetail" }
 }
