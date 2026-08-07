@@ -5,8 +5,9 @@ sap.ui.define([
   "sap/ui/model/FilterOperator",
   "sap/ui/model/Sorter",
   "sap/m/MessageToast",
-  "sap/m/MessageBox"
-], function (Controller, JSONModel, Filter, FilterOperator, Sorter, MessageToast, MessageBox) {
+  "sap/m/MessageBox",
+  "sap/ui/core/routing/History"
+], function (Controller, JSONModel, Filter, FilterOperator, Sorter, MessageToast, MessageBox, History) {
   "use strict";
 
   // Root of the category tree. Everything below it is discovered via parent_ID,
@@ -303,7 +304,16 @@ sap.ui.define([
     },
 
     onBack: function () {
-      this.onGoDashboard();
+      // Return to wherever the user actually came from (SG ticket list, the
+      // analytics dashboard, or the End User dashboard) instead of always
+      // dropping onto the End User dashboard. Falls back to the default
+      // landing only when there's no in-app history (e.g. a deep link).
+      var sPrevious = History.getInstance().getPreviousHash();
+      if (sPrevious !== undefined) {
+        window.history.go(-1);
+      } else {
+        this.getOwnerComponent().getRouter().navTo("dashboard", {}, true);
+      }
     },
 
     onGoDashboard: function () {

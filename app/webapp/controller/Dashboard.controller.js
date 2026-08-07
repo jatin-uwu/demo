@@ -924,7 +924,7 @@ sap.ui.define([
     },
 
     onGoAnalytics: function () {
-      this.getOwnerComponent().getRouter().navTo("analytics");
+      this.getOwnerComponent().getRouter().navTo("serviceGroupDashboard");
     },
 
     /* ---------------------------------------------------------

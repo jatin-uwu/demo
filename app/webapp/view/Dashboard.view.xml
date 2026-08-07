@@ -226,7 +226,8 @@
           <Text text="CATEGORY-WISE BREAKDOWN" class="sectionPill"/>
           <HBox alignItems="Center" class="chartHeadActions">
             <Button icon="sap-icon://line-chart" type="Transparent"
-                    tooltip="Open analytics dashboard" press=".onGoAnalytics" class="analyticsBtn"/>
+                    tooltip="Open Service Group analytics" press=".onGoAnalytics" class="analyticsBtn"
+                    visible="{sel>/isServiceGroup}"/>
           </HBox>
         </HBox>
         <VBox class="chartBody">

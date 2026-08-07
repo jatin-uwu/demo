@@ -17,56 +17,56 @@
     "watch": "cds watch"
   },
   "cds": {
-    "requires": {
-      "[production]": {
-        "db": {
-          "kind": "hana"
+  "requires": {
+    "[production]": {
+      "db": {
+        "kind": "hana"
+      },
+      "auth": "xsuaa"
+    },
+
+    "[development]": {
+      "db": {
+        "kind": "hana"
+      }
+    },
+
+    "[sqlite]": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": {
+          "database": "sqlite.db"
+        }
+      }
+    },
+
+    "auth": {
+      "kind": "mocked",
+      "users": {
+        "sachin": {
+          "password": "welcome1",
+          "roles": ["Agent"]
         },
-        "auth": "xsuaa"
-      },
-      "[development]": {
-        "db": {
-          "kind": "hana"
+        "virat": {
+          "password": "welcome1",
+          "roles": ["Consultanta"]
+        },
+        "aayush": {
+          "password": "welcome1",
+          "roles": ["Agent"]
+        },
+        "sarthak": {
+          "password": "welcome1",
+          "roles": ["Agent"]
+        },
+        "jatin": {
+          "password": "welcome1",
+          "roles": ["ServiceGroup"]
         }
-      },
-      "auth": {
-        "kind": "mocked",
-        "users": {
-          "sachin": {
-            "password": "welcome1",
-            "roles": [
-              "Agent",
-              "ServiceGroup",
-              "Admin"
-            ]
-          },
-          "virat": {
-            "password": "welcome1",
-            "roles": [
-              "Agent"
-            ]
-          },
-          "aayush": {
-            "password": "welcome1",
-            "roles": [
-              "Agent"
-            ]
-          },
-          "sarthak": {
-            "password": "welcome1",
-            "roles": [
-              "Agent"
-            ]
-          },
-          "jatin": {
-            "password": "welcome1",
-            "roles": [
-              "Agent"
-            ]
-          }
-        }
-      },
-      "outbox": false
+      }
+    },
+
+    "outbox": false
     }
   }
 }

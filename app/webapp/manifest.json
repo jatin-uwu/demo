@@ -71,13 +71,15 @@
       },
       "routes": [
   { "pattern": "", "name": "dashboard", "target": "dashboard" },
-  { "pattern": "analytics", "name": "analytics", "target": "analytics" },
+  { "pattern": "service-group-dashboard", "name": "serviceGroupDashboard", "target": "serviceGroupDashboard" },
+  { "pattern": "sg-tickets", "name": "sgTickets", "target": "sgTickets" },
   { "pattern": "create", "name": "create", "target": "main" },
   { "pattern": "ticket/{id}", "name": "detail", "target": "main" }
 ],
 "targets": {
   "dashboard": { "viewName": "Dashboard", "viewId": "dashboard" },
-  "analytics": { "viewName": "Analytics", "viewId": "analytics" },
+  "serviceGroupDashboard": { "viewName": "ServiceGroupDashboard", "viewId": "serviceGroupDashboard" },
+  "sgTickets": { "viewName": "ServiceGroupTickets", "viewId": "sgTickets" },
   "main": { "viewName": "Main", "viewId": "main" }
 }
     }

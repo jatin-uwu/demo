@@ -19,6 +19,97 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
   margin-bottom: 12px;
 }
 
+/* ---- analytics: equal-width card rows (distribution, team performance).
+   Reuses .sectionCard for the cards themselves; this just lays them out
+   side by side with the same generous gap and wraps them on narrow
+   screens, so each chart/list gets real room instead of being crammed. */
+.analyticsRow { gap: 18px; align-items: stretch; margin-bottom: 18px; }
+.analyticsCard { flex: 1 1 280px; min-width: 0; margin-bottom: 0; }
+
+/* operational dashboard: compact tables/lists so each card stays dense */
+.opsTable .sapMListTblHeaderCell { padding-top: 2px; padding-bottom: 6px; }
+.opsTable .sapMListTblCell, .opsTable .sapMListTblHeaderCell { font-size: 12.5px; }
+.opsList .sapMSLI { min-height: 2.6rem; }
+.opsList .sapMSLITitleOnly, .opsList .sapMSLIInfo { font-size: 12.5px; }
+.slaMonitorRow { gap: 10px; margin: 4px 0 6px; }
+.slaMonitorRow .legend { flex: 1; gap: 6px; }
+.slaMonitorRow .leg-row { width: 100%; }
+.subPill { font-size: 10px; font-weight: 700; letter-spacing: .05em; color: #9ca3af; text-transform: uppercase; margin: 8px 0 4px; }
+/* SVG chart legends */
+.trendLegend { gap: 6px; margin-top: 6px; }
+.trendLegend .legText { font-size: 11px; color: #6b7280; margin-right: 10px; }
+.legDot { width: 9px; height: 9px; border-radius: 3px; }
+.legDot.dotCreated { background: #3f4ff0; }
+.legDot.dotResolved { background: #22c55e; }
+/* core:HTML wrapper shouldn't add spacing around the inline SVG donuts */
+.slaMonitorRow .sapUiHt { line-height: 0; flex: none; }
+
+/* =========================================================
+   Service Group Dashboard — enterprise density (scoped to .sgDash so
+   the other pages that share .sectionCard / .opsTable keep their spacing).
+   Cards size to their content (no equal-height stretch) and rows are
+   compact, so the operational picture fits ~one screen.
+   ========================================================= */
+.sgDash.densePage.appBg { padding: 8px 14px 12px; }
+.sgDash .tileRow { gap: 8px; margin: 8px 0 10px; }
+.sgDash .analyticsRow { gap: 10px; margin-bottom: 10px; align-items: stretch; }
+.sgDash .sectionCard { padding: 10px 12px; }
+.sgDash .sectionPill { margin-bottom: 6px; padding: 3px 9px; font-size: 10.5px; }
+.sgDash .subPill { margin: 6px 0 2px; }
+
+/* compact info lists (work queue / escalation / assignment).
+   The list items were being flex-stretched to fill the card (explicit
+   height); force natural, compact row heights instead. */
+.sgDash .opsList, .sgDash .opsList .sapMListUl, .sgDash .opsList ul { display: block !important; height: auto !important; }
+.sgDash .opsList .sapMLIB { height: auto !important; min-height: 2.25rem !important; flex: 0 0 auto !important; padding-top: 2px; padding-bottom: 2px; }
+.sgDash .opsList .sapMSLI { min-height: 2.25rem !important; }
+.sgDash .opsList .sapMSLIImgNoInsetIcon,
+.sgDash .opsList .sapMSLIImgIcon { font-size: 1.15rem !important; width: 1.15rem !important; height: 1.15rem !important; line-height: 1.15rem !important; margin-right: .6rem; }
+.sgDash .opsList .sapMSLITitle,
+.sgDash .opsList .sapMSLITitleOnly,
+.sgDash .opsList .sapMSLIInfo { font-size: 12.5px; }
+
+/* compact tables (engineer overload / team performance / at-risk) */
+.sgDash .opsTable .sapMListTblCell,
+.sgDash .opsTable .sapMListTblHeaderCell { padding-top: 4px !important; padding-bottom: 4px !important; font-size: 12px; }
+.sgDash .opsTable .sapMLIB { min-height: 0 !important; }
+.sgDash .opsTable .sapMListTblHeaderCell { padding-bottom: 6px !important; }
+
+/* SLA Monitor: donut column (~40%) beside the at-risk table (~60%) */
+.sgDash .slaSplit { gap: 12px; margin-top: 2px; }
+.sgDash .slaDonutCol { align-items: center; min-width: 0; }
+.sgDash .slaDonutCol .sapUiHt svg { width: 100px !important; height: 100px !important; }
+.sgDash .slaDonutCol .legend { width: 100%; gap: 4px; margin-top: 6px; }
+.sgDash .slaRiskCol { min-width: 0; }
+.sgDash .slaRiskCol .subPill { margin-top: 0; }
+
+/* smaller donuts + tighter legends */
+.sgDash .slaMonitorRow { margin: 2px 0 4px; gap: 8px; }
+.sgDash .slaMonitorRow .sapUiHt svg,
+.sgDash .slaMonitorRow > .sapMFlexItem svg { width: 104px !important; height: 104px !important; }
+.sgDash .legend { gap: 4px; }
+.sgDash .leg-row { padding: 1px 0; }
+
+/* category bars a touch tighter */
+.sgDash .catRow { padding: 3px 0; }
+.sgDash .catBar { height: .55rem; }
+
+/* tighter table rows + compact card-header link buttons (they otherwise
+   add ~20px of header height per card) */
+.sgDash .opsTable .sapMListTblCell,
+.sgDash .opsTable .sapMListTblHeaderCell { padding-top: 3px !important; padding-bottom: 3px !important; }
+.sgDash .opsTable .sapMLIB { min-height: 2rem !important; height: auto !important; }
+.sgDash .opsTable .sapMObjectStatus,
+.sgDash .opsTable .sapMObjectNumber { line-height: 1.15rem; }
+.sgDash .opsTable .sapMObjectStatusText,
+.sgDash .opsTable .sapMObjectNumberText { font-size: 11.5px; }
+.sgDash .sectionCard > .sapMFlexBox .sapMBtn { min-height: 1.5rem; }
+.sgDash .sectionCard > .sapMFlexBox .sapMBtnInner { min-height: 1.5rem; padding-top: 0; padding-bottom: 0; }
+.sgDash .analyticsRow { gap: 8px; margin-bottom: 8px; }
+.sgDash .tileRow { margin: 6px 0 8px; }
+/* trim the outer scroll padding a bit more */
+.sgDash.densePage.appBg { padding: 6px 14px 8px; }
+
 /* sap.m.Button paints its visible surface on the nested .sapMBtnInner span,
    not on the outer <button> the "class" attribute lands on — so these
    target .sapMBtnInner (a real descendant), not "button" (which the class
