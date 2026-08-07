@@ -36,7 +36,7 @@
          the fixed app name across every page. -->
     <VBox class="pageSubtitleBlock">
       <Text text="{ui>/ticketLabel}" class="pageTicketId"/>
-      <Text text="{ui>/subtitle}" class="pageSubtitle"/>
+      <Text text="{= ${shortDescription} ? ${shortDescription} : ${ui>/subtitle} }" class="pageSubtitle"/>
     </VBox>
 
     <!-- Tabs act as in-page navigation: selecting one scrolls to its section. -->
@@ -187,10 +187,16 @@
             <Text text="PROCESSING DATA &amp; DATES" class="sectionPill"/>
             <VBox class="formGrid">
 
-              <VBox class="formField">
+              <!-- Draft is never a manual choice — a ticket is Draft only
+                   until Submit moves it to New (see _createDraftIncident /
+                   submitTicket), so the field itself is hidden while still
+                   Draft, and once it's visible, Draft is excluded from the
+                   pickable statuses (an agent editing an already-submitted
+                   ticket shouldn't be able to send it back to Draft). -->
+              <VBox class="formField" visible="{= ${status} !== 'DRAFT' }">
                 <Label text="Status"/>
                 <ComboBox selectedKey="{status}" enabled="{ui>/formEditable}" width="100%"
-                          items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                          items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true and code ne 'DRAFT'&quot;, $orderby: 'sequence' } }">
                   <core:Item key="{code}" text="{name}"/>
                 </ComboBox>
               </VBox>

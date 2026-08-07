@@ -120,9 +120,11 @@ sap.ui.define([
       // columns (see FILTER_POOL / COLUMN_POOL above).
       this.getView().setModel(new JSONModel(this._buildColsVisibility()), "cols");
 
-      // Drives the "Delete" button's enabled state: canDelete is only
-      // true when every selected row is a Draft ticket.
-      this.getView().setModel(new JSONModel({ hasSelection: false, canDelete: false, isServiceGroup: false }), "sel");
+      // Drives the "Delete" button's enabled state (canDelete: every
+      // selected row is a Draft ticket) and role-gated visibility
+      // (isServiceGroup for "Assign Selected"-style actions, isAdmin
+      // for the analytics button).
+      this.getView().setModel(new JSONModel({ hasSelection: false, canDelete: false, isServiceGroup: false, isAdmin: false }), "sel");
       this._loadCurrentUser();
 
       // code -> name maps for the plain-string fields (status/priority/
@@ -204,8 +206,11 @@ sap.ui.define([
     formatUserName: function (sUserId) { return sUserId ? (this._mUserNames[sUserId] || sUserId) : ""; },
 
     /* ---------------------------------------------------------
-     * Who's logged in — drives the "Assign Selected" bulk action's
-     * visibility (ServiceGroup/Admin only, see service.cds assignTickets).
+     * Who's logged in — drives role-gated visibility: isServiceGroup
+     * for the "Assign Selected" bulk action (see service.cds
+     * assignTickets), isAdmin for the analytics dashboard button
+     * (Analytics is Admin-only; Agents/end users shouldn't see the
+     * entry point at all, not just be blocked after clicking it).
      * ------------------------------------------------------- */
     _loadCurrentUser: function () {
       var that = this;
@@ -213,9 +218,11 @@ sap.ui.define([
       var oAction = oModel.bindContext("/currentUser(...)");
       oAction.execute().then(function () {
         var oCtx = oAction.getBoundContext();
-        that.getView().getModel("sel").setProperty("/isServiceGroup",
+        var oSelModel = that.getView().getModel("sel");
+        oSelModel.setProperty("/isServiceGroup",
           !!(oCtx.getProperty("isServiceGroup") || oCtx.getProperty("isAdmin")));
-      }).catch(function () { /* best-effort — action stays hidden */ });
+        oSelModel.setProperty("/isAdmin", !!oCtx.getProperty("isAdmin"));
+      }).catch(function () { /* best-effort — actions stay hidden */ });
     },
 
     /* ---------------------------------------------------------
@@ -377,6 +384,8 @@ sap.ui.define([
         var mStatusCount = {};   // code -> count
         var mPriorityCount = {}; // code -> count
         var mCatCount = {};      // category code -> count
+        var mCatOpen = {};       // category code -> open (not Closed) count
+        var mCatClosed = {};     // category code -> Closed count
         var iBreached = 0, iAtRisk = 0, iUnassigned = 0;
         var iTotal = aInc.length;
 
@@ -415,7 +424,14 @@ sap.ui.define([
           }
 
           var sCatCode = oCtx.getProperty("incidentForm/category1");
-          if (sCatCode) { mCatCount[sCatCode] = (mCatCount[sCatCode] || 0) + 1; }
+          if (sCatCode) {
+            mCatCount[sCatCode] = (mCatCount[sCatCode] || 0) + 1;
+            if (sStatusCode === "CLOSED") {
+              mCatClosed[sCatCode] = (mCatClosed[sCatCode] || 0) + 1;
+            } else {
+              mCatOpen[sCatCode] = (mCatOpen[sCatCode] || 0) + 1;
+            }
+          }
 
           if (!oCtx.getProperty("messageProcessor")) {
             iUnassigned++;
@@ -474,11 +490,21 @@ sap.ui.define([
         var iCatTotal = Object.keys(mCatCount).reduce(function (s, k) { return s + mCatCount[k]; }, 0) || 1;
         var aCatData = Object.keys(mCatCount).map(function (sCode) {
           var iCount = mCatCount[sCode];
+          var iOpen = mCatOpen[sCode] || 0;
+          var iClosed = mCatClosed[sCode] || 0;
+          // Open/closed split of THIS row's own bar (out of iCount, not
+          // iCatTotal) — both blue shades, per row, instead of the old
+          // single-color bar that only read total share across categories.
+          var iOpenPct = iCount ? Math.round((iOpen / iCount) * 100) : 0;
           return {
             code: sCode,
             name: that._mCategoryName[sCode] || sCode,
             count: iCount,
-            percent: Math.round((iCount / iCatTotal) * 100)
+            percent: Math.round((iCount / iCatTotal) * 100),
+            openCount: iOpen,
+            closedCount: iClosed,
+            openPercent: iOpenPct,
+            closedPercent: 100 - iOpenPct
           };
         }).sort(function (a, b) { return b.count - a.count; });
         that._aLastCatData = aCatData;

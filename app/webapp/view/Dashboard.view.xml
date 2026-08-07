@@ -218,7 +218,8 @@
           <Text text="CATEGORY-WISE BREAKDOWN" class="sectionPill"/>
           <HBox alignItems="Center" class="chartHeadActions">
             <Button icon="sap-icon://line-chart" type="Transparent"
-                    tooltip="Open analytics dashboard" press=".onGoAnalytics" class="analyticsBtn"/>
+                    tooltip="Open analytics dashboard" press=".onGoAnalytics" class="analyticsBtn"
+                    visible="{sel>/isAdmin}"/>
           </HBox>
         </HBox>
         <VBox class="chartBody">
@@ -266,7 +267,20 @@
                   <Text text="{dash>name}" class="catName"/>
                   <Text text="{dash>count}" class="catCount"/>
                 </HBox>
-                <ProgressIndicator percentValue="{dash>percent}" displayValue="{dash>percent}%" class="catBar" state="Information"/>
+                <!-- Two-segment bar, both blue-family shades: open share
+                     (vivid) + closed share (muted), split within this
+                     category's own count — not each category's share of
+                     the grand total, like the old single-color bar was. -->
+                <HBox class="catBar2">
+                  <VBox class="catBar2Open" width="{= ${dash>openPercent} + '%'}"/>
+                  <VBox class="catBar2Closed" width="{= ${dash>closedPercent} + '%'}"/>
+                </HBox>
+                <HBox class="catSplitRow" alignItems="Center">
+                  <VBox class="catSplitDot catSplitDotOpen"/>
+                  <Text text="{= 'Open ' + ${dash>openCount}}" class="catSplitLabel"/>
+                  <VBox class="catSplitDot catSplitDotClosed"/>
+                  <Text text="{= 'Closed ' + ${dash>closedCount}}" class="catSplitLabel"/>
+                </HBox>
               </VBox>
             </CustomListItem>
           </List>

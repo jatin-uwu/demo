@@ -572,7 +572,19 @@ sap.ui.define([
       if (this._sIncidentNumber) {
         return Promise.resolve(this._sIncidentNumber);
       }
-      return this._oIncidentContext.requestProperty("ticketNumber").then(function (sNumber) {
+      // context.created() resolves once the entity is actually persisted
+      // and the context has been repointed from its transient ($uid=...)
+      // path to the real server-assigned key. submitBatch() resolving
+      // does NOT guarantee that repointing has happened yet for every
+      // created context in the batch — requesting a property too early
+      // can race ahead of it and come back null instead of the real
+      // number. created() returns undefined for a context that was never
+      // transient (e.g. an existing ticket being viewed), hence the
+      // fallback to an already-resolved promise.
+      var pCreated = this._oIncidentContext.created() || Promise.resolve();
+      return pCreated.then(function () {
+        return that._oIncidentContext.requestProperty("ticketNumber");
+      }).then(function (sNumber) {
         that._sIncidentNumber = sNumber;
         return sNumber;
       });
@@ -623,6 +635,19 @@ sap.ui.define([
               // real generated number so it's visible without navigating away.
               if (bWasCreate) {
                 MessageBox.success("Ticket number " + sNumber + " has been generated.", { title: "Draft Saved" });
+                // _oIncidentContext is still the transient-origin context from
+                // create() — the v4 model keeps treating it as "the pending
+                // create" even after the server has persisted it (bSkipRefresh
+                // on that create() never gave it a chance to settle into an
+                // ordinary entity). Left as-is, every further edit on this
+                // same page visit re-POSTs the original blank payload as a
+                // brand new ticket instead of PATCHing this one, silently
+                // discarding whatever the user just typed. Rebinding to a
+                // plain context for the now-real ticket ID — the same call
+                // _onDetailMatched uses for an existing ticket — clears that
+                // residual create state so subsequent saves are ordinary
+                // updates.
+                that._bindExistingIncident(sNumber);
               } else {
                 MessageToast.show("Ticket " + sNumber + " updated successfully.");
               }

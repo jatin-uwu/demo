@@ -203,12 +203,12 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .pageSubtitleBlock { margin: 4px 20px 0; }
 .pageTicketId {
   color: #1e2a5e !important;
-  font-size: 13px !important;
+  font-size: 18px !important;
   font-weight: 900 !important;
 }
 .pageSubtitle {
   color: #6b7280 !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
   margin: 1px 0 0;
 }
 
@@ -415,9 +415,25 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .catRow { padding: 5px 0; }
 .catName { font-size: 12px; font-weight: 600; color: #1e2a5e; }
 .catCount { font-size: 12px; font-weight: 700; color: #374151; }
-.catBar { height: 6px; border-radius: 3px; margin-top: 3px; }
-.catBar .sapMPIBarLeft { border-radius: 3px 0 0 3px; }
-.catBar .sapMPIBarRight { border-radius: 0 3px 3px 0; }
+
+/* ---- per-category bar: open vs closed share of THAT category's own
+   tickets, both blue-family shades (vivid = open/needs attention, muted =
+   closed/done) — replaces the old single-color "share of grand total" bar. ---- */
+.catBar2 {
+  height: 6px;
+  border-radius: 3px;
+  margin-top: 3px;
+  overflow: hidden;
+  background: #eef2ff;
+}
+.catBar2Open { background: #2a78d6; }
+.catBar2Closed { background: #b9cdf0; }
+
+.catSplitRow { gap: 5px; margin-top: 4px; }
+.catSplitDot { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.catSplitDotOpen { background: #2a78d6; }
+.catSplitDotClosed { background: #b9cdf0; }
+.catSplitLabel { font-size: 11px; color: #6b7280; margin-right: 8px; }
 
 /* ---- analytics page: trends card's header pill (reuses .tablePane's
    card styling, which is otherwise built around a Table's own toolbar) ---- */
