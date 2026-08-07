@@ -220,8 +220,6 @@
             <Button icon="sap-icon://line-chart" type="Transparent"
                     tooltip="Open Service Group analytics" press=".onGoAnalytics" class="analyticsBtn"
                     visible="{sel>/isServiceGroup}"/>
-                    tooltip="Open analytics dashboard" press=".onGoAnalytics" class="analyticsBtn"
-                    visible="{sel>/isAdmin}"/>
           </HBox>
         </HBox>
         <VBox class="chartBody">

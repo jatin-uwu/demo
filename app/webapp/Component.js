@@ -20,9 +20,18 @@ sap.ui.define([
 
     init: function () {
       UIComponent.prototype.init.apply(this, arguments);
-<<<<<<< HEAD
-      this.getRouter().initialize();
-      this._applyRoleBasedLanding();
+
+      var oRouter = this.getRouter();
+      var that = this;
+
+      this._fetchCurrentUser().then(function (bIsConsultant) {
+        that._bIsConsultant = bIsConsultant;
+        that._guardRoutes(oRouter);
+        oRouter.initialize();
+        if (!bIsConsultant) {
+          that._applyRoleBasedLanding();
+        }
+      });
     },
 
     /**
@@ -52,16 +61,6 @@ sap.ui.define([
           oRouter.navTo("serviceGroupDashboard");
         }
       }).catch(function () { /* best-effort — fall back to the default landing */ });
-=======
-
-      var oRouter = this.getRouter();
-      var that = this;
-
-      this._fetchCurrentUser().then(function (bIsConsultant) {
-        that._bIsConsultant = bIsConsultant;
-        that._guardRoutes(oRouter);
-        oRouter.initialize();
-      });
     },
 
     /**
@@ -93,7 +92,6 @@ sap.ui.define([
           oRouter.navTo(sHome, {}, true /* no history entry */);
         });
       });
->>>>>>> afb046b4ea3cf8c98210405bf7358b0ba2aed201
     }
   });
 });
