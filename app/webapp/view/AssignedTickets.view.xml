@@ -1,0 +1,79 @@
+<mvc:View
+  controllerName="itsm.ui.controller.AssignedTickets"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  displayBlock="true">
+
+  <Page id="assignedPage" showHeader="false" backgroundDesign="Transparent" class="appBg densePage">
+
+    <!-- ===== same styled app header as the rest of the app: logo (left, home) · title (center) =====
+         No back button — this page IS the Consultant's home; nothing above
+         it to go back to inside this module. -->
+    <Bar class="appHeader">
+      <contentLeft>
+        <Image src="images/ccentrik.png" height="30px" densityAware="false" class="appLogo" press=".onGoAssigned"/>
+      </contentLeft>
+      <contentMiddle>
+        <Title text="Consultant Workspace" class="appHeaderTitle"/>
+      </contentMiddle>
+    </Bar>
+
+    <VBox class="sectionCard">
+      <Table
+        id="assignedTable"
+        inset="false"
+        growing="true"
+        growingThreshold="50"
+        sticky="ColumnHeaders,HeaderToolbar"
+        items="{
+          path: '/Tickets',
+          parameters: { $orderby: 'assignedAt desc' }
+        }"
+        noDataText="No tickets are currently assigned to you.">
+
+        <headerToolbar>
+          <OverflowToolbar style="Clear">
+            <Title text="Assigned Tickets" level="H5" class="sectionPill"/>
+            <ToolbarSpacer/>
+            <Select id="assignedStatusFilter" width="9rem" items="{filters>/statuses}" change=".onFilterChange">
+              <core:Item key="{filters>code}" text="{filters>name}"/>
+            </Select>
+            <Select id="assignedPriorityFilter" width="9rem" items="{filters>/priorities}" change=".onFilterChange">
+              <core:Item key="{filters>code}" text="{filters>name}"/>
+            </Select>
+            <SearchField width="16rem" placeholder="Search # or description" search=".onSearch" liveChange=".onSearch"/>
+            <Button text="Reset" icon="sap-icon://clear-filter" press=".onResetFilters"/>
+          </OverflowToolbar>
+        </headerToolbar>
+
+        <columns>
+          <Column width="7rem"><Text text="Ticket Number"/></Column>
+          <Column width="8rem"><Text text="Status"/></Column>
+          <Column width="8rem"><Text text="Priority"/></Column>
+          <Column width="9rem"><Text text="Reported By"/></Column>
+          <Column width="16rem"><Text text="Short Description"/></Column>
+          <Column width="9rem"><Text text="Support Team"/></Column>
+          <Column width="9rem"><Text text="Assigned Date"/></Column>
+          <Column width="9rem"><Text text="Last Updated"/></Column>
+        </columns>
+
+        <items>
+          <ColumnListItem type="Navigation" press=".onTicketPress">
+            <cells>
+              <ObjectIdentifier title="{ticketNumber}"/>
+              <ObjectStatus text="{path: 'status', formatter: '.formatStatusName'}" state="{path: 'status', formatter: '.formatStatusState'}"/>
+              <ObjectStatus text="{path: 'priority', formatter: '.formatPriorityName'}" state="{path: 'priority', formatter: '.formatPriorityState'}"/>
+              <Text text="{path: 'reportedBy', formatter: '.formatUserName'}"/>
+              <Text text="{shortDescription}"/>
+              <Text text="{path: 'supportTeam', formatter: '.formatTeamName'}"/>
+              <Text text="{path: 'assignedAt', formatter: '.formatDateTime'}"/>
+              <Text text="{path: 'modifiedAt', formatter: '.formatDateTime'}"/>
+            </cells>
+          </ColumnListItem>
+        </items>
+      </Table>
+    </VBox>
+
+  </Page>
+</mvc:View>

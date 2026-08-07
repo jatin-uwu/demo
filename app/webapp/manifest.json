@@ -73,12 +73,16 @@
   { "pattern": "", "name": "dashboard", "target": "dashboard" },
   { "pattern": "analytics", "name": "analytics", "target": "analytics" },
   { "pattern": "create", "name": "create", "target": "main" },
-  { "pattern": "ticket/{id}", "name": "detail", "target": "main" }
+  { "pattern": "ticket/{id}", "name": "detail", "target": "main" },
+  { "pattern": "assigned", "name": "assigned", "target": "assigned" },
+  { "pattern": "assigned/{id}", "name": "assignedDetail", "target": "assignedDetail" }
 ],
 "targets": {
   "dashboard": { "viewName": "Dashboard", "viewId": "dashboard" },
   "analytics": { "viewName": "Analytics", "viewId": "analytics" },
-  "main": { "viewName": "Main", "viewId": "main" }
+  "main": { "viewName": "Main", "viewId": "main" },
+  "assigned": { "viewName": "AssignedTickets", "viewId": "assigned" },
+  "assignedDetail": { "viewName": "ConsultantTicket", "viewId": "assignedDetail" }
 }
     }
   }

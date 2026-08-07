@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@cap-js/hana": "^2.0.0",
+    "@cap-js/hana": "^3",
     "@cap-js/postgres": "^3.0.1",
     "@sap/cds": "^10.0.4",
     "@sap/xssec": "^4.9.0",
@@ -16,7 +16,6 @@
     "start": "cds-serve",
     "watch": "cds watch"
   },
-  "private": true,
   "cds": {
     "requires": {
       "[production]": {
@@ -27,17 +26,51 @@
       },
       "[development]": {
         "db": {
-          "kind": "hana"
+          "kind": "sqlite",
+          "credentials": {
+            "url": ":memory:"
+          }
         }
       },
       "auth": {
         "kind": "mocked",
         "users": {
-          "sachin": { "password": "welcome1", "roles": ["Agent", "ServiceGroup", "Admin"] },
-          "virat": { "password": "welcome1", "roles": ["Agent"] },
-          "aayush": { "password": "welcome1", "roles": ["Agent"] },
-          "sarthak": { "password": "welcome1", "roles": ["Agent"] },
-          "deepak": { "password": "welcome1", "roles": ["Agent"] }
+          "sachin": {
+            "password": "welcome1",
+            "roles": [
+              "Agent"
+            ]
+          },
+          "virat": {
+            "password": "welcome1",
+            "roles": [
+              "Consultant"
+            ]
+          },
+          "aayush": {
+            "password": "welcome1",
+            "roles": [
+              "Agent"
+            ]
+          },
+          "sarthak": {
+            "password": "welcome1",
+            "roles": [
+              "Agent"
+            ]
+          },
+          "jatin": {
+            "password": "welcome1",
+            "roles": [
+              "ServiceGroup"
+            ]
+          },
+          "deepak": {
+            "password": "welcome1",
+            "roles": [
+              "Consultant"
+            ]
+          }
         }
       },
       "outbox": false

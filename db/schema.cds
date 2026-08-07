@@ -88,6 +88,10 @@ context txn {
         dueAt            : Timestamp;
         completedAt      : Timestamp;
 
+        // Stamped whenever messageProcessor changes (assignTickets action or
+        // plain UPDATE) — drives the Consultant portal's "Assigned Date" column.
+        assignedAt       : Timestamp;
+
         // Child collections
         attachments      : Composition of many Attachment
                            on attachments.ticket = $self;
@@ -141,6 +145,10 @@ context txn {
 
         irtStatus           : String(50);
         mptStatus           : String(50);
+
+        // Consultant working fields
+        workingArea         : String(50);
+        isSapRelated        : Boolean default false;
 
         sapNotes            : Composition of many TicketSAPNote
                               on sapNotes.ticketForm = $self;
