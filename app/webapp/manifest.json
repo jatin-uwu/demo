@@ -74,13 +74,19 @@
   { "pattern": "service-group-dashboard", "name": "serviceGroupDashboard", "target": "serviceGroupDashboard" },
   { "pattern": "sg-tickets", "name": "sgTickets", "target": "sgTickets" },
   { "pattern": "create", "name": "create", "target": "main" },
-  { "pattern": "ticket/{id}", "name": "detail", "target": "main" }
+  { "pattern": "ticket/{id}", "name": "detail", "target": "main" },
+  { "pattern": "assigned", "name": "assigned", "target": "assigned" },
+  { "pattern": "assigned/{id}", "name": "assignedDetail", "target": "assignedDetail" }
 ],
 "targets": {
   "dashboard": { "viewName": "Dashboard", "viewId": "dashboard" },
   "serviceGroupDashboard": { "viewName": "ServiceGroupDashboard", "viewId": "serviceGroupDashboard" },
   "sgTickets": { "viewName": "ServiceGroupTickets", "viewId": "sgTickets" },
   "main": { "viewName": "Main", "viewId": "main" }
+  "analytics": { "viewName": "Analytics", "viewId": "analytics" },
+  "main": { "viewName": "Main", "viewId": "main" },
+  "assigned": { "viewName": "AssignedTickets", "viewId": "assigned" },
+  "assignedDetail": { "viewName": "ConsultantTicket", "viewId": "assignedDetail" }
 }
     }
   }

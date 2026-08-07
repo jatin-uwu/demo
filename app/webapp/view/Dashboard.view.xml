@@ -166,15 +166,7 @@
               <Button text="Reset" icon="sap-icon://clear-filter" press=".onResetFilters"/>
               <Button id="tableExpandBtn" icon="sap-icon://full-screen" tooltip="Expand table" type="Transparent"
                       press=".onToggleTableExpand" class="tableExpandBtn"/>
-              <MenuButton text="More" icon="sap-icon://action" enabled="{sel>/hasSelection}">
-                <menu>
-                  <Menu>
-                    <MenuItem text="Submit Selected" icon="sap-icon://accept" press=".onBulkSubmit"/>
-                    <MenuItem text="Delete Selected" icon="sap-icon://delete" press=".onBulkDelete"/>
-                    <MenuItem text="Assign Selected" icon="sap-icon://key-user-settings" press=".onBulkAssign" visible="{sel>/isServiceGroup}"/>
-                  </Menu>
-                </menu>
-              </MenuButton>
+              <Button text="Delete" icon="sap-icon://delete" enabled="{sel>/canDelete}" press=".onBulkDelete"/>
               <Button text="New Ticket" icon="sap-icon://add" class="submitBtn" press=".onCreateTicket"/>
             </OverflowToolbar>
           </headerToolbar>
@@ -228,6 +220,8 @@
             <Button icon="sap-icon://line-chart" type="Transparent"
                     tooltip="Open Service Group analytics" press=".onGoAnalytics" class="analyticsBtn"
                     visible="{sel>/isServiceGroup}"/>
+                    tooltip="Open analytics dashboard" press=".onGoAnalytics" class="analyticsBtn"
+                    visible="{sel>/isAdmin}"/>
           </HBox>
         </HBox>
         <VBox class="chartBody">
@@ -275,7 +269,20 @@
                   <Text text="{dash>name}" class="catName"/>
                   <Text text="{dash>count}" class="catCount"/>
                 </HBox>
-                <ProgressIndicator percentValue="{dash>percent}" displayValue="{dash>percent}%" class="catBar" state="Information"/>
+                <!-- Two-segment bar, both blue-family shades: open share
+                     (vivid) + closed share (muted), split within this
+                     category's own count — not each category's share of
+                     the grand total, like the old single-color bar was. -->
+                <HBox class="catBar2">
+                  <VBox class="catBar2Open" width="{= ${dash>openPercent} + '%'}"/>
+                  <VBox class="catBar2Closed" width="{= ${dash>closedPercent} + '%'}"/>
+                </HBox>
+                <HBox class="catSplitRow" alignItems="Center">
+                  <VBox class="catSplitDot catSplitDotOpen"/>
+                  <Text text="{= 'Open ' + ${dash>openCount}}" class="catSplitLabel"/>
+                  <VBox class="catSplitDot catSplitDotClosed"/>
+                  <Text text="{= 'Closed ' + ${dash>closedCount}}" class="catSplitLabel"/>
+                </HBox>
               </VBox>
             </CustomListItem>
           </List>

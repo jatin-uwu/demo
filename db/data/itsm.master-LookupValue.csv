@@ -111,3 +111,16 @@ b4000000-0000-4000-8000-000000000017,CATEGORY4,CH_CRASH,Crashes,Browser crashes,
 b4000000-0000-4000-8000-000000000018,CATEGORY4,CH_EXT,Extension Issue,Extension misbehaving,b3000000-0000-4000-8000-000000000023,20,false,true
 b4000000-0000-4000-8000-000000000019,CATEGORY4,LOCK_REPEAT,Repeated Lockout,Account locks repeatedly,b3000000-0000-4000-8000-000000000033,10,false,true
 b4000000-0000-4000-8000-000000000020,CATEGORY4,LOCK_UNLOCK,Unlock Request,One-off unlock,b3000000-0000-4000-8000-000000000033,20,false,true
+e1000000-0000-4000-8000-000000000001,WORKING_AREA,BACKEND,Backend,Server-side application logic,,10,false,true
+e1000000-0000-4000-8000-000000000002,WORKING_AREA,DATABASE,Database,Database and persistence layer,,20,false,true
+e1000000-0000-4000-8000-000000000003,WORKING_AREA,NETWORK,Network,Connectivity and infrastructure,,30,false,true
+e1000000-0000-4000-8000-000000000004,WORKING_AREA,APPLICATION,Application,Application / frontend layer,,40,false,true
+e1000000-0000-4000-8000-000000000005,WORKING_AREA,BASIS,Basis,SAP Basis / system administration,,50,false,true
+e2000000-0000-4000-8000-000000000001,IRT_STATUS,ON_TRACK,On Track,Within the initial response window,,10,true,true
+e2000000-0000-4000-8000-000000000002,IRT_STATUS,AT_RISK,At Risk,Close to breaching the initial response window,,20,false,true
+e2000000-0000-4000-8000-000000000003,IRT_STATUS,BREACHED,Breached,Initial response window exceeded,,30,false,true
+e2000000-0000-4000-8000-000000000004,IRT_STATUS,MET,Met,Initial response delivered in time,,40,false,true
+e3000000-0000-4000-8000-000000000001,MPT_STATUS,ON_TRACK,On Track,Within the resolution processing window,,10,true,true
+e3000000-0000-4000-8000-000000000002,MPT_STATUS,AT_RISK,At Risk,Close to breaching the resolution window,,20,false,true
+e3000000-0000-4000-8000-000000000003,MPT_STATUS,BREACHED,Breached,Resolution processing window exceeded,,30,false,true
+e3000000-0000-4000-8000-000000000004,MPT_STATUS,MET,Met,Resolved within the processing window,,40,false,true

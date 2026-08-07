@@ -22,6 +22,13 @@ const SYSTEM_FIELDS = [
     'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy'
 ];
 
+// A Consultant may update engineer/technical fields on a ticket assigned to
+// them, but never routing/classification/ownership — those stay Service
+// Group's and the End User's, respectively (see ITSM-Consultant-Module spec:
+// "cannot reassign tickets", "cannot modify routing or classification").
+const CONSULTANT_LOCKED_TICKET_FIELDS = ['reportedBy', 'ticketType', 'messageProcessor', 'supportTeam'];
+const CONSULTANT_LOCKED_FORM_FIELDS = ['category1', 'category2', 'category3', 'category4', 'language', 'solutionCategory', 'recommendedPriority'];
+
 
 async function beforeCreateTicket(req) {
 
@@ -63,6 +70,35 @@ async function afterCreateTicket(data, req) {
 }
 
 
+/* ---------------------------------------------------------
+ * A Consultant may only touch a ticket already assigned to them, and only
+ * its engineer/technical fields — never routing, classification or
+ * ownership. Must run and finish *before* stampSlaTimestamps reads
+ * req.data.messageProcessor — CAP runs same-phase `before` handlers
+ * concurrently, not sequentially, so this can't be a second, separately
+ * registered `before` hook (its async ownership-check query would race
+ * stampSlaTimestamps rather than reliably precede it). Called directly,
+ * in order, from the front of stampSlaTimestamps instead — see below.
+ * ------------------------------------------------------- */
+async function restrictConsultantUpdate(req) {
+
+    if (!req.user.is('Consultant') || req.user.is('Admin')) return;
+
+    const ticketID = keyOf(req, 'ticketID');
+    const { Ticket } = cds.entities('itsm.txn');
+    const ticket = await SELECT.one.from(Ticket).columns('messageProcessor').where({ ticketID });
+
+    if (!ticket || ticket.messageProcessor !== currentUserId(req)) {
+        return req.reject(403, 'You can only update tickets assigned to you.');
+    }
+
+    for (const field of CONSULTANT_LOCKED_TICKET_FIELDS) delete req.data[field];
+    if (req.data.incidentForm) {
+        for (const field of CONSULTANT_LOCKED_FORM_FIELDS) delete req.data.incidentForm[field];
+    }
+}
+
+
 async function onUpdateTicket(req, next) {
 
     const data = req.data;
@@ -87,7 +123,21 @@ async function onUpdateTicket(req, next) {
         const existing = await SELECT.one.from(cds.entities('ITSMService').IncidentForms)
             .columns('ID').where({ ticket_ticketID: ticketID });
 
-        if (existing) data.incidentForm.ID = existing.ID;
+        if (existing) {
+            data.incidentForm.ID = existing.ID;
+
+            // Same "reuse the existing child's key so a deep update patches
+            // it instead of inserting a duplicate" rule, one level deeper —
+            // sapNoteSearch is a composition of *one* on incidentForm, first
+            // written by the Consultant workspace (see ConsultantTicket.
+            // controller.js), which never has an ID to send on the first
+            // save.
+            if (data.incidentForm.sapNoteSearch) {
+                const existingSearch = await SELECT.one.from(cds.entities('ITSMService').SAPNoteSearchCriteria)
+                    .columns('ID').where({ ticketForm_ID: existing.ID });
+                if (existingSearch) data.incidentForm.sapNoteSearch.ID = existingSearch.ID;
+            }
+        }
     }
 
     if (Array.isArray(data.comments) && data.comments.length) {
@@ -109,24 +159,40 @@ async function onUpdateTicket(req, next) {
 
 async function stampSlaTimestamps(req) {
 
+    // Strips locked fields (see restrictConsultantUpdate above) *before*
+    // this function's own reads of req.data below, so a Consultant's
+    // stripped-but-still-attempted messageProcessor change can never fall
+    // through into an assignedAt stamp. req.reject() throws, so an
+    // unauthorized Consultant never reaches the rest of this function.
+    await restrictConsultantUpdate(req);
+
     const ticketID = keyOf(req, 'ticketID');
-    if (!ticketID || !('status' in req.data)) return;
+    const bStatusChanging = 'status' in req.data;
+    const bAssigneeChanging = 'messageProcessor' in req.data;
+    if (!ticketID || (!bStatusChanging && !bAssigneeChanging)) return;
 
     const { Ticket } = cds.entities('itsm.txn');
     const stored = await SELECT.one.from(Ticket)
-        .columns('status', 'firstResponseAt', 'completedAt')
+        .columns('status', 'firstResponseAt', 'completedAt', 'messageProcessor')
         .where({ ticketID });
-
-    if (!stored || req.data.status === stored.status) return;
+    if (!stored) return;
 
     const sNow = new Date().toISOString();
 
-    if (stored.status === STATUS_NEW && !stored.firstResponseAt) {
-        req.data.firstResponseAt = sNow;
+    if (bStatusChanging && req.data.status !== stored.status) {
+        if (stored.status === STATUS_NEW && !stored.firstResponseAt) {
+            req.data.firstResponseAt = sNow;
+        }
+        if (RESOLVED_STATUSES.includes(req.data.status) && !stored.completedAt) {
+            req.data.completedAt = sNow;
+        }
     }
 
-    if (RESOLVED_STATUSES.includes(req.data.status) && !stored.completedAt) {
-        req.data.completedAt = sNow;
+    // assignedAt drives the Consultant portal's "Assigned Date" column —
+    // stamped on every genuine reassignment, whether it arrives via a plain
+    // PATCH or (see srv/handlers/dashboard.js) the bulk assignTickets action.
+    if (bAssigneeChanging && req.data.messageProcessor !== stored.messageProcessor) {
+        req.data.assignedAt = sNow;
     }
 }
 
@@ -145,6 +211,12 @@ async function onReadTicket(req, next) {
             `(status != ${sql(STATUS_DRAFT)} or status is null)`
             + ` or reportedBy = ${sql(me)}`
         );
+
+    } else if (req.user.is('Consultant')) {
+        // The Consultant portal's entire isolation guarantee lives here:
+        // no client-side filter, no other role branch — a Consultant simply
+        // never receives rows for tickets assigned to someone else.
+        req.query.where(`messageProcessor = ${sql(me)}`);
 
     } else {
         req.query.where(`reportedBy = ${sql(me)}`);
