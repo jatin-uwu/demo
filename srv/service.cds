@@ -5,6 +5,8 @@ using { itsm.master as master, itsm.txn as txn } from '../db/schema';
       Agent        — raise and process incidents. Everyone.
       ServiceGroup — sees every incident in the system and
                      assigns them to engineers.
+      Consultant   — engineer; sees and works only the
+                     incidents assigned to them.
       Admin        — master data.
     Locally these come from the mocked users in package.json;
     on CF from the XSUAA role templates in xs-security.json.
@@ -137,6 +139,7 @@ service ITSMService {
         email          : String(100);
         isServiceGroup : Boolean;
         isAdmin        : Boolean;
+        isConsultant   : Boolean;
     }
 
     function currentUser() returns CurrentUser;

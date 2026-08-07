@@ -20,7 +20,8 @@ async function onCurrentUser(req) {
         name: (profile && profile.name) || currentUserId(req) || 'Unknown user',
         email: (profile && profile.email) || null,
         isServiceGroup: req.user.is('ServiceGroup'),
-        isAdmin: req.user.is('Admin')
+        isAdmin: req.user.is('Admin'),
+        isConsultant: req.user.is('Consultant')
     };
 }
 
@@ -62,7 +63,18 @@ async function onAssignTickets(req) {
     );
     if (changed.length === 0) return 0;
 
+    // assignedAt drives the Consultant portal's "Assigned Date" column — only
+    // stamped for rows where messageProcessor itself actually moved, not a
+    // supportTeam-only reassignment.
+    const reassigned = changed.filter(row => 'messageProcessor' in next
+        && String(row.messageProcessor ?? '') !== String(next.messageProcessor ?? ''));
+
     await UPDATE(Ticket).set(next).where({ ticketID: { in: changed.map(r => r.ticketID) } });
+
+    if (reassigned.length) {
+        await UPDATE(Ticket).set({ assignedAt: new Date().toISOString() })
+            .where({ ticketID: { in: reassigned.map(r => r.ticketID) } });
+    }
 
     for (const row of changed) {
         for (const [field, fieldName] of Object.entries(ASSIGNABLE)) {

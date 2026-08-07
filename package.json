@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@cap-js/hana": "^3.0.2",
+    "@cap-js/hana": "^3",
     "@cap-js/postgres": "^3.0.1",
     "@sap/cds": "^10.0.4",
     "@sap/xssec": "^4.9.0",
@@ -26,7 +26,10 @@
       },
       "[development]": {
         "db": {
-          "kind": "hana"
+          "kind": "sqlite",
+          "credentials": {
+            "url": ":memory:"
+          }
         }
       },
       "auth": {
@@ -35,15 +38,13 @@
           "sachin": {
             "password": "welcome1",
             "roles": [
-              "Agent",
-              "ServiceGroup",
-              "Admin"
+              "Agent"
             ]
           },
           "virat": {
             "password": "welcome1",
             "roles": [
-              "Agent"
+              "Consultant"
             ]
           },
           "aayush": {
@@ -61,7 +62,13 @@
           "jatin": {
             "password": "welcome1",
             "roles": [
-              "Agent"
+              "ServiceGroup"
+            ]
+          },
+          "deepak": {
+            "password": "welcome1",
+            "roles": [
+              "Consultant"
             ]
           }
         }

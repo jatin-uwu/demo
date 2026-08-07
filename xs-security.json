@@ -19,6 +19,10 @@
     {
       "name": "$XSAPPNAME.Admin",
       "description": "Administer master data and all incidents"
+    },
+    {
+      "name": "$XSAPPNAME.Consultant",
+      "description": "Investigate and resolve incidents assigned to you"
     }
   ],
   "attributes": [],
@@ -49,6 +53,14 @@
         "$XSAPPNAME.Admin"
       ],
       "attribute-references": []
+    },
+    {
+      "name": "Consultant",
+      "description": "Engineer working assigned incidents",
+      "scope-references": [
+        "$XSAPPNAME.Consultant"
+      ],
+      "attribute-references": []
     }
   ],
   "role-collections": [
@@ -71,6 +83,13 @@
       "description": "Application administrator",
       "role-template-references": [
         "$XSAPPNAME.Admin"
+      ]
+    },
+    {
+      "name": "IncidentConsultant",
+      "description": "Engineer working assigned incidents",
+      "role-template-references": [
+        "$XSAPPNAME.Consultant"
       ]
     }
   ]

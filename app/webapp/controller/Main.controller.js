@@ -35,11 +35,14 @@ sap.ui.define([
     ticketType: "Ticket Type", shortDescription: "Short Description", status: "Status",
     priority: "Final Priority", reportedBy: "Reported By", messageProcessor: "Assigned To",
     supportTeam: "Support Team", firstResponseAt: "First Response By", dueAt: "Due By",
-    completedAt: "Completed On", description: "Full Description",
+    completedAt: "Completed On", assignedAt: "Assigned Date", description: "Full Description",
     category1: "Category 1", category2: "Category 2", category3: "Category 3", category4: "Category 4",
     solutionCategory: "Solution Category", impact: "Impact", urgency: "Urgency",
     recommendedPriority: "Recommended Priority", configurationItem: "Configuration Item",
-    relatedRFC: "Related RFC"
+    relatedRFC: "Related RFC", system: "System", softwareComponent: "Software Component",
+    softwareVersion: "Software Version", supportPackage: "Support Package",
+    irtStatus: "IRT Status", mptStatus: "MPT Status", workingArea: "Working Area",
+    isSapRelated: "SAP Related"
   };
 
   return Controller.extend("itsm.ui.controller.Main", {

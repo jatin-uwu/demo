@@ -2,6 +2,7 @@ const cds = require('@sap/cds');
 
 const { beforeCreateTicket, afterCreateTicket, onUpdateTicket, onReadTicket, onSubmitTicket, restrictDeleteToDrafts, stampSlaTimestamps } = require('./handlers/ticket');
 const { onCurrentUser, onAssignTickets } = require('./handlers/dashboard');
+const { restrictConsultantChildByTicket, restrictConsultantChildByForm } = require('./handlers/consultant');
 
 /* =========================================================
    ITSM SERVICE — AGGREGATE ROOT ARCHITECTURE
@@ -32,22 +33,33 @@ const { onCurrentUser, onAssignTickets } = require('./handlers/dashboard');
      currentUser   the caller's identity and role flags
      assignTickets service-group bulk (re)assignment
 
-   No child entity has a hook. That is not a stylistic choice: a
-   nested composition raises NO CREATE or UPDATE event of its
-   own — CAP writes child rows as part of the parent's statement
-   — so a hook on TicketComments would never fire for a comment
-   that arrived inside a ticket payload. Child enrichment happens
+   Child entities normally have no hook of their own: a nested
+   composition raises NO CREATE or UPDATE event of its own — CAP
+   writes child rows as part of the parent's statement — so a
+   hook on TicketComments would never fire for a comment that
+   arrived inside a ticket payload. Child enrichment happens
    inline in the ticket handlers instead.
+
+   The one exception is READ: unlike CREATE/UPDATE, a client can
+   (and the Consultant portal's own attachments/comments/history
+   panels do) query a child entity directly rather than only
+   through $expand on Tickets. restrictConsultantChildByTicket/
+   ByForm close the read side of that gap for Consultants
+   specifically — see srv/handlers/consultant.js.
 
    No business logic belongs in this file.
    ========================================================= */
 
 module.exports = cds.service.impl(async function () {
 
-    const { Tickets } = this.entities;
+    const { Tickets, IncidentForms, Attachments, TicketComments,
+        TicketSAPNotes, SAPNoteSearchCriteria, ScheduledActions, TicketHistory } = this.entities;
 
 
     this.before('CREATE', Tickets, beforeCreateTicket);
+    // stampSlaTimestamps runs restrictConsultantUpdate itself, first thing —
+    // see the comment on restrictConsultantUpdate in handlers/ticket.js for
+    // why these can't be two independently registered `before` hooks.
     this.before('UPDATE', Tickets, stampSlaTimestamps);
     this.on('UPDATE', Tickets, onUpdateTicket);
     this.on('READ', Tickets, onReadTicket);
@@ -57,5 +69,14 @@ module.exports = cds.service.impl(async function () {
     this.on('submitTicket', onSubmitTicket);
     this.on('currentUser', onCurrentUser);
     this.on('assignTickets', onAssignTickets);
+
+    // Ticket's own child entities — reachable directly, not only via
+    // $expand, so each needs the same Consultant ownership check as Tickets.
+    for (const entity of [IncidentForms, Attachments, TicketComments, ScheduledActions, TicketHistory]) {
+        this.before('READ', entity, restrictConsultantChildByTicket);
+    }
+    for (const entity of [TicketSAPNotes, SAPNoteSearchCriteria]) {
+        this.before('READ', entity, restrictConsultantChildByForm);
+    }
 
 });

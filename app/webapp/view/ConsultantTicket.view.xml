@@ -1,0 +1,431 @@
+<mvc:View
+  controllerName="itsm.ui.controller.ConsultantTicket"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  displayBlock="true">
+
+  <Page id="consultantPage" showHeader="false" backgroundDesign="Transparent" class="appBg densePage">
+
+    <!-- ===== same styled app header as the rest of the app: back (left, always
+         to Assigned Tickets — never another role's dashboard) · logo (left,
+         same target) · title (center) · Save (right) ===== -->
+    <Bar class="appHeader">
+      <contentLeft>
+        <Button icon="sap-icon://nav-back" type="Transparent"
+                tooltip="Back to Assigned Tickets"
+                press=".onBack"
+                class="sapUiTinyMarginEnd"/>
+        <Image src="images/ccentrik.png" height="30px" densityAware="false" class="appLogo" press=".onBack"/>
+      </contentLeft>
+      <contentMiddle>
+        <Title text="Consultant Workspace" class="appHeaderTitle"/>
+      </contentMiddle>
+      <contentRight>
+        <Button text="Save" class="saveBtn" enabled="{ui>/saveEnabled}" press=".onSave"/>
+      </contentRight>
+    </Bar>
+
+    <VBox class="pageSubtitleBlock">
+      <Text text="{ui>/ticketLabel}" class="pageTicketId"/>
+      <Text text="{ui>/subtitle}" class="pageSubtitle"/>
+    </VBox>
+
+    <IconTabHeader id="tabs" mode="Inline" backgroundDesign="Transparent" select=".onTabSelect" class="sapUiSmallMarginTop">
+      <items>
+        <IconTabFilter text="Ticket Info" key="info"/>
+        <IconTabFilter text="General" key="general"/>
+        <IconTabFilter text="Incident Details" key="incident"/>
+        <IconTabFilter text="Technical Information" key="technical"/>
+        <IconTabFilter text="SLA Tracking" key="sla"/>
+        <IconTabFilter text="SAP Specific" key="sap"/>
+        <IconTabFilter text="Work Information" key="work"/>
+        <IconTabFilter text="Scheduled Actions" key="scheduled"/>
+      </items>
+    </IconTabHeader>
+
+    <VBox id="sections">
+
+      <!-- ===== 1. TICKET INFO — business context carried over from the End
+           User's ticket, read-only: it already did its job at reporting
+           time, the Consultant just needs it for reference. ===== -->
+      <VBox id="secInfo">
+        <VBox class="sectionCard">
+          <Text text="TICKET INFO" class="sectionPill"/>
+          <VBox class="formGrid">
+
+            <VBox class="formField">
+              <Label text="Reported By"/>
+              <Input value="{path: 'reportedBy', formatter: '.formatUserName'}" editable="false" width="100%"/>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Ticket Type"/>
+              <Input value="{path: 'ticketType', formatter: '.formatTicketTypeName'}" editable="false" width="100%"/>
+            </VBox>
+
+            <VBox class="formField formFieldWide">
+              <Label text="Short Description"/>
+              <TextArea rows="2" width="100%" editable="false" value="{shortDescription}" class="descriptionArea"/>
+            </VBox>
+
+            <VBox class="formField formFieldWide">
+              <Label text="Full Description"/>
+              <TextArea rows="3" width="100%" editable="false" growing="true" growingMaxLines="20"
+                value="{incidentForm/description}" class="fullDescriptionArea"/>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Configuration Item"/>
+              <Input value="{incidentForm/configurationItem}" editable="false" width="100%"/>
+            </VBox>
+
+          </VBox>
+        </VBox>
+
+        <!-- Attachments — view/download only; the Consultant works with
+             evidence the End User already provided, not a new upload flow. -->
+        <VBox class="sectionCard">
+          <Text text="ATTACHMENTS" class="sectionPill"/>
+          <Table id="attachmentsTable" items="{attachments>/list}" noDataText="No attachments on this ticket." class="attachmentsTable">
+            <columns>
+              <Column><Text text="Document Name" class="attachmentsColHead"/></Column>
+              <Column><Text text="Uploaded by" class="attachmentsColHead"/></Column>
+              <Column><Text text="Uploaded on" class="attachmentsColHead"/></Column>
+            </columns>
+            <items>
+              <ColumnListItem>
+                <cells>
+                  <Link text="{attachments>fileName}" href="{attachments>contentUrl}" target="_blank"
+                        enabled="{= !!${attachments>contentUrl} }"/>
+                  <Text text="{attachments>uploadedBy}"/>
+                  <Text text="{attachments>uploadedOn}"/>
+                </cells>
+              </ColumnListItem>
+            </items>
+          </Table>
+        </VBox>
+      </VBox>
+
+      <!-- ===== 2. GENERAL — Status/Priority are the Consultant's to move;
+           Support Team/Message Processor show current ownership for
+           context but are never editable here (no self-reassignment). ===== -->
+      <VBox id="secGeneral">
+        <VBox class="sectionCard">
+          <Text text="GENERAL" class="sectionPill"/>
+          <VBox class="formGrid">
+
+            <VBox class="formField">
+              <Label text="Status"/>
+              <ComboBox selectedKey="{status}" enabled="{ui>/formEditable}" width="100%"
+                        items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true and code ne 'DRAFT'&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{code}" text="{name}"/>
+              </ComboBox>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Priority"/>
+              <ComboBox selectedKey="{priority}" enabled="{ui>/formEditable}" width="100%"
+                        items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{code}" text="{name}"/>
+              </ComboBox>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Support Team"/>
+              <Input value="{path: 'supportTeam', formatter: '.formatTeamName'}" editable="false" width="100%"/>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Message Processor"/>
+              <Input value="{path: 'messageProcessor', formatter: '.formatUserName'}" editable="false" width="100%"/>
+            </VBox>
+
+          </VBox>
+        </VBox>
+      </VBox>
+
+      <!-- ===== 3. INCIDENT DETAILS ===== -->
+      <VBox id="secIncident">
+        <VBox class="sectionCard">
+          <Text text="INCIDENT DETAILS" class="sectionPill"/>
+          <VBox class="formGrid">
+
+            <VBox class="formField">
+              <Label text="Impact"/>
+              <ComboBox selectedKey="{incidentForm/impact}" enabled="{ui>/formEditable}" width="100%"
+                        items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{code}" text="{name}"/>
+              </ComboBox>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Urgency"/>
+              <ComboBox selectedKey="{incidentForm/urgency}" enabled="{ui>/formEditable}" width="100%"
+                        items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{code}" text="{name}"/>
+              </ComboBox>
+            </VBox>
+
+          </VBox>
+        </VBox>
+      </VBox>
+
+      <!-- ===== 4. TECHNICAL INFORMATION ===== -->
+      <VBox id="secTechnical">
+        <VBox class="sectionCard">
+          <Text text="TECHNICAL INFORMATION" class="sectionPill"/>
+          <VBox class="formGrid">
+
+            <VBox class="formField">
+              <Label text="System"/>
+              <Select selectedKey="{incidentForm/system}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                      items="{ path: '/Systems', parameters: { $orderby: 'name' } }">
+                <core:Item key="{systemId}" text="{name}"/>
+              </Select>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Software Component"/>
+              <Select selectedKey="{incidentForm/softwareComponent}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                      items="{ path: '/SoftwareComponents', parameters: { $orderby: 'name' } }">
+                <core:Item key="{componentCode}" text="{name}"/>
+              </Select>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Software Version"/>
+              <Input value="{incidentForm/softwareVersion}" editable="{ui>/formEditable}" width="100%"/>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Support Package"/>
+              <Input value="{path: 'incidentForm/supportPackage', type: 'sap.ui.model.odata.type.Int32'}" editable="{ui>/formEditable}" width="100%"/>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="Related RFC"/>
+              <Input value="{incidentForm/relatedRFC}" editable="{ui>/formEditable}" width="100%"/>
+            </VBox>
+
+          </VBox>
+        </VBox>
+      </VBox>
+
+      <!-- ===== 5. SLA TRACKING ===== -->
+      <VBox id="secSla">
+        <VBox class="sectionCard">
+          <Text text="SLA TRACKING" class="sectionPill"/>
+          <VBox class="formGrid">
+
+            <VBox class="formField">
+              <Label text="IRT Status"/>
+              <Select selectedKey="{incidentForm/irtStatus}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                      items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'IRT_STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{code}" text="{name}"/>
+              </Select>
+            </VBox>
+
+            <VBox class="formField">
+              <Label text="MPT Status"/>
+              <Select selectedKey="{incidentForm/mptStatus}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                      items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'MPT_STATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{code}" text="{name}"/>
+              </Select>
+            </VBox>
+
+          </VBox>
+        </VBox>
+      </VBox>
+
+      <!-- ===== 6. SAP SPECIFIC — the Notes/Search sub-sections only make
+           sense once the ticket is flagged SAP-related, so they stay
+           hidden until the switch is on. ===== -->
+      <VBox id="secSap">
+        <VBox class="sectionCard">
+          <Text text="SAP SPECIFIC" class="sectionPill"/>
+          <VBox class="formGrid">
+            <VBox class="formField">
+              <Label text="SAP Related"/>
+              <Switch state="{incidentForm/isSapRelated}" enabled="{ui>/formEditable}" customTextOn="Yes" customTextOff="No"/>
+            </VBox>
+          </VBox>
+
+          <VBox visible="{= !!${incidentForm/isSapRelated} }">
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginTop">
+              <Text text="SAP Notes" class="attachmentsCount"/>
+              <Button text="Add SAP Note" icon="sap-icon://add" enabled="{ui>/formEditable}" press=".onAddSapNote"/>
+            </HBox>
+            <Table id="sapNotesTable" items="{incidentForm/sapNotes}" noDataText="No SAP notes attached yet." class="attachmentsTable">
+              <columns>
+                <Column><Text text="Note #" class="attachmentsColHead"/></Column>
+                <Column><Text text="Description" class="attachmentsColHead"/></Column>
+                <Column><Text text="Component" class="attachmentsColHead"/></Column>
+                <Column><Text text="Status" class="attachmentsColHead"/></Column>
+              </columns>
+              <items>
+                <ColumnListItem>
+                  <cells>
+                    <Text text="{sapNoteNumber}"/>
+                    <Text text="{description}"/>
+                    <Text text="{component}"/>
+                    <Text text="{status}"/>
+                  </cells>
+                </ColumnListItem>
+              </items>
+            </Table>
+
+            <Text text="SAP Note Search Criteria" class="attachmentsCount sapUiSmallMarginTop"/>
+            <VBox class="formGrid">
+              <VBox class="formField">
+                <Label text="Components Starting With"/>
+                <Input value="{incidentForm/sapNoteSearch/componentsStartWith}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+              <VBox class="formField">
+                <Label text="Components Exact"/>
+                <Input value="{incidentForm/sapNoteSearch/componentsExact}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+              <VBox class="formField">
+                <Label text="Excluded Components"/>
+                <Input value="{incidentForm/sapNoteSearch/excludedComponents}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+              <VBox class="formField">
+                <Label text="Support Package Greater Than"/>
+                <Input value="{path: 'incidentForm/sapNoteSearch/supportPackageGreaterThan', type: 'sap.ui.model.odata.type.Int32'}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+              <VBox class="formField">
+                <Label text="Support Package Equal"/>
+                <Input value="{path: 'incidentForm/sapNoteSearch/supportPackageEqual', type: 'sap.ui.model.odata.type.Int32'}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+              <VBox class="formField">
+                <Label text="Fuzzy Threshold"/>
+                <Input value="{incidentForm/sapNoteSearch/fuzzyThreshold}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+              <VBox class="formField">
+                <Label text="Released On (Pre-defined)"/>
+                <Input value="{incidentForm/sapNoteSearch/releasedOnPreDefined}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+              <VBox class="formField">
+                <Label text="Released On (Free)"/>
+                <DatePicker value="{path: 'incidentForm/sapNoteSearch/releasedOnFree', type: 'sap.ui.model.odata.type.Date'}" editable="{ui>/formEditable}" width="100%"/>
+              </VBox>
+            </VBox>
+          </VBox>
+        </VBox>
+      </VBox>
+
+      <!-- ===== 7. WORK INFORMATION ===== -->
+      <VBox id="secWork">
+        <VBox class="sectionCard">
+          <Text text="WORK INFORMATION" class="sectionPill"/>
+          <VBox class="formGrid">
+            <VBox class="formField">
+              <Label text="Working Area"/>
+              <Select selectedKey="{incidentForm/workingArea}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                      items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'WORKING_AREA' and isActive eq true&quot;, $orderby: 'sequence' } }">
+                <core:Item key="{code}" text="{name}"/>
+              </Select>
+            </VBox>
+          </VBox>
+
+          <Text text="Comments" class="attachmentsCount sapUiSmallMarginTop"/>
+          <List id="commentsList" items="{comments}" noDataText="No comments yet." class="sapUiTinyMarginTop">
+            <CustomListItem>
+              <VBox class="catRow">
+                <HBox justifyContent="SpaceBetween">
+                  <Text text="{path: 'author', formatter: '.formatUserName'}" class="timelineUser"/>
+                  <Text text="{path: 'createdAt', formatter: '.formatDateTime'}" class="timelineDate"/>
+                </HBox>
+                <Text text="{comment}" class="timelineText"/>
+              </VBox>
+            </CustomListItem>
+          </List>
+
+          <VBox class="sapUiSmallMarginTop">
+            <TextArea id="newCommentArea" rows="2" width="100%" enabled="{ui>/formEditable}"
+                      placeholder="Add a comment about your investigation or progress..."/>
+            <Button text="Add Comment" icon="sap-icon://comment" enabled="{ui>/formEditable}"
+                    class="sapUiTinyMarginTop" press=".onAddComment"/>
+          </VBox>
+        </VBox>
+      </VBox>
+
+      <!-- ===== 8. SCHEDULED ACTIONS ===== -->
+      <VBox id="secScheduled">
+        <VBox class="sectionCard">
+          <HBox justifyContent="SpaceBetween" alignItems="Center">
+            <Text text="SCHEDULED ACTIONS" class="sectionPill"/>
+            <Button text="Add Action" icon="sap-icon://add" enabled="{ui>/formEditable}" press=".onAddScheduledAction"/>
+          </HBox>
+          <Table id="scheduledActionsTable" items="{scheduledActions}" noDataText="No scheduled actions yet." class="attachmentsTable">
+            <columns>
+              <Column><Text text="Action" class="attachmentsColHead"/></Column>
+              <Column><Text text="Processing Type" class="attachmentsColHead"/></Column>
+              <Column><Text text="Status" class="attachmentsColHead"/></Column>
+              <Column hAlign="Center"><Text text="Executable" class="attachmentsColHead"/></Column>
+              <Column><Text text="Scheduled At" class="attachmentsColHead"/></Column>
+            </columns>
+            <items>
+              <ColumnListItem>
+                <cells>
+                  <Text text="{actionDefinition}"/>
+                  <Text text="{processingType}"/>
+                  <Text text="{status}"/>
+                  <core:Icon src="{= ${executable} ? 'sap-icon://accept' : 'sap-icon://decline' }"/>
+                  <Text text="{path: 'scheduledAt', formatter: '.formatDateTime'}"/>
+                </cells>
+              </ColumnListItem>
+            </items>
+          </Table>
+        </VBox>
+      </VBox>
+
+    </VBox>
+
+    <!-- ===== Add SAP Note dialog ===== -->
+    <Dialog id="addSapNoteDialog" title="Add SAP Note" contentWidth="26rem">
+      <VBox class="sapUiSmallMargin">
+        <Label text="SAP Note Number"/>
+        <Input id="sapNoteNumberInput" width="100%"/>
+        <Label text="Description" class="sapUiSmallMarginTop"/>
+        <TextArea id="sapNoteDescriptionInput" rows="2" width="100%"/>
+        <Label text="Component" class="sapUiSmallMarginTop"/>
+        <Select id="sapNoteComponentSelect" forceSelection="false" width="100%"
+                items="{ path: '/SoftwareComponents', parameters: { $orderby: 'name' } }">
+          <core:Item key="{componentCode}" text="{name}"/>
+        </Select>
+        <Label text="Status" class="sapUiSmallMarginTop"/>
+        <Input id="sapNoteStatusInput" width="100%" placeholder="e.g. To Implement, Implemented"/>
+      </VBox>
+      <beginButton>
+        <Button text="Add" type="Emphasized" press=".onConfirmAddSapNote"/>
+      </beginButton>
+      <endButton>
+        <Button text="Cancel" press=".onCancelAddSapNote"/>
+      </endButton>
+    </Dialog>
+
+    <!-- ===== Add Scheduled Action dialog ===== -->
+    <Dialog id="addScheduledActionDialog" title="Add Scheduled Action" contentWidth="26rem">
+      <VBox class="sapUiSmallMargin">
+        <Label text="Action Definition"/>
+        <Input id="actionDefinitionInput" width="100%"/>
+        <Label text="Processing Type" class="sapUiSmallMarginTop"/>
+        <Input id="processingTypeInput" width="100%" placeholder="e.g. Manual, Automatic"/>
+        <Label text="Status" class="sapUiSmallMarginTop"/>
+        <Input id="actionStatusInput" width="100%" placeholder="e.g. Planned, Done"/>
+        <Label text="Scheduled At" class="sapUiSmallMarginTop"/>
+        <DateTimePicker id="scheduledAtPicker" width="100%"/>
+        <CheckBox id="executableCheckBox" text="Executable" class="sapUiSmallMarginTop"/>
+      </VBox>
+      <beginButton>
+        <Button text="Add" type="Emphasized" press=".onConfirmAddScheduledAction"/>
+      </beginButton>
+      <endButton>
+        <Button text="Cancel" press=".onCancelAddScheduledAction"/>
+      </endButton>
+    </Dialog>
+
+  </Page>
+</mvc:View>

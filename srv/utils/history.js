@@ -4,7 +4,7 @@ const { currentUserId, keyOf } = require('./user');
 const TICKET_FIELDS = [
     'ticketType', 'shortDescription', 'status', 'priority',
     'reportedBy', 'messageProcessor', 'supportTeam',
-    'firstResponseAt', 'dueAt', 'completedAt'
+    'firstResponseAt', 'dueAt', 'completedAt', 'assignedAt'
 ];
 
 const FORM_FIELDS = [
@@ -12,7 +12,7 @@ const FORM_FIELDS = [
     'solutionCategory', 'impact', 'urgency', 'recommendedPriority',
     'language', 'isStandard', 'system', 'softwareComponent',
     'softwareVersion', 'supportPackage', 'configurationItem',
-    'relatedRFC', 'irtStatus', 'mptStatus'
+    'relatedRFC', 'irtStatus', 'mptStatus', 'workingArea', 'isSapRelated'
 ];
 
 
