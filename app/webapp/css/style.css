@@ -109,8 +109,12 @@ html, body { height: 100%; margin: 0; background: #eef2ff; }
 .sgDash .tileRow { gap: 6px; margin: 6px 0 6px; }
 /* A global rule gives every .sectionCard / .tileRow a 16px left+right margin,
    which was adding ~32px BETWEEN adjacent cards (on top of the 6px flex gap).
-   Remove it inside the dashboard so the only spacing between cards is the gap. */
-.sgDash .tileRow, .sgDash .sectionCard { margin-left: 0 !important; margin-right: 0 !important; }
+   Remove it inside the dashboard so the only spacing between cards is the gap.
+   .appHeader carries the same global 16px margin — left in, it sat ~32px
+   narrower than the tiles/cards below it, which only get the page's own
+   14px padding (see .sgDash.densePage.appBg below); reset it the same way
+   so the header spans the same width as the rest of the page. */
+.sgDash .tileRow, .sgDash .sectionCard, .sgDash .appHeader { margin-left: 0 !important; margin-right: 0 !important; }
 /* The sap.m.Page scroll <section> is absolutely positioned edge-to-edge, so
    the page's own padding never applies to it and the right-hand cards sit
    flush against the viewport — the vertical scrollbar then overlays and clips

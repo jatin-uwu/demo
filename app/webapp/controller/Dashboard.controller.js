@@ -13,11 +13,6 @@ sap.ui.define([
   // submitTicket() (service.cds) is the only door out of Draft.
   var STATUS_DRAFT = "DRAFT";
 
-  // Fields required to submit a ticket out of Draft — same list Main.controller.js
-  // checks on a single-ticket Submit. impact/urgency/description moved onto
-  // incidentForm in the new schema.
-  var SUBMIT_REQUIRED_FIELDS = ["shortDescription", "priority", "incidentForm/impact", "incidentForm/urgency", "incidentForm/description"];
-
   // The full pool of KPI tiles a user can choose from — always exactly 6
   // shown at a time (see DEFAULT_TILE_KEYS / onManageTiles). Three flavors:
   //  - "status": code is a STATUS lookup code (null = every ticket)
@@ -830,80 +825,6 @@ sap.ui.define([
           }
         }
       );
-    },
-
-    /* ---------------------------------------------------------
-     * Bulk submit — same rule and required-field validation as the
-     * single-ticket Submit button (Main.controller.js onSubmit), just
-     * applied per selected Draft ticket, via the submitTicket() action
-     * (a plain status PATCH is refused once a ticket is Draft — see
-     * srv/handlers/ticket.js onUpdateTicket). Non-Draft selections and
-     * Drafts missing required fields are skipped, not blocking, so one
-     * incomplete ticket in the batch doesn't stop the rest.
-     * ------------------------------------------------------- */
-    onBulkSubmit: function () {
-      var that = this;
-      var aContexts = this.byId("dashTable").getSelectedContexts();
-      var aDraftCtx = aContexts.filter(function (oCtx) {
-        return oCtx.getObject().status === STATUS_DRAFT;
-      });
-
-      if (!aDraftCtx.length) {
-        MessageToast.show("Only Draft tickets can be submitted — none of the selected tickets are Drafts.");
-        return;
-      }
-
-      MessageBox.confirm(
-        "Submit " + aDraftCtx.length + " Draft ticket(s)?",
-        {
-          title: "Submit Tickets",
-          actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
-          emphasizedAction: MessageBox.Action.OK,
-          onClose: function (sAction) {
-            if (sAction !== MessageBox.Action.OK) { return; }
-            that._submitDraftContexts(aDraftCtx);
-          }
-        }
-      );
-    },
-
-    _submitDraftContexts: function (aDraftCtx) {
-      var that = this;
-      var oModel = this.getOwnerComponent().getModel();
-
-      Promise.all(aDraftCtx.map(function (oCtx) {
-        return oCtx.requestProperty(SUBMIT_REQUIRED_FIELDS).then(function () {
-          var oData = oCtx.getObject();
-          var oForm = oData.incidentForm || {};
-          var bValid = !!oData.shortDescription && !!oData.priority && !!oForm.impact && !!oForm.urgency && !!oForm.description;
-          return { oCtx: oCtx, valid: bValid, number: oData.ticketNumber };
-        });
-      })).then(function (aResults) {
-        var aValid = aResults.filter(function (r) { return r.valid; });
-        var aInvalid = aResults.filter(function (r) { return !r.valid; });
-
-        if (!aValid.length) {
-          MessageBox.warning("None of the selected Draft tickets have all required fields filled in " +
-            "(Short Description, Impact, Urgency, Priority, Full Description). Open each one to complete it.");
-          return;
-        }
-
-        Promise.all(aValid.map(function (r) {
-          var oAction = oModel.bindContext("ITSMService.submitTicket(...)", r.oCtx);
-          return oAction.execute();
-        })).then(function () {
-          var sMsg = aValid.length + " ticket(s) submitted.";
-          if (aInvalid.length) {
-            sMsg += " Skipped (missing required fields): " +
-              aInvalid.map(function (r) { return r.number; }).join(", ");
-          }
-          MessageToast.show(sMsg);
-          that.byId("dashTable").removeSelections(true);
-          that._onMatched();
-        }).catch(function (err) {
-          MessageBox.error("Submit failed: " + (err.message || err));
-        });
-      });
     },
 
     /* ---------------------------------------------------------

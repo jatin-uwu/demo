@@ -45,7 +45,7 @@
       "users": {
         "sachin": {
           "password": "welcome1",
-          "roles": ["Agent"]
+          "roles": ["Admin"]
         },
         "virat": {
           "password": "welcome1",
