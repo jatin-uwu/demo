@@ -61,11 +61,23 @@ sap.ui.define([
       // Drives header buttons and form editability by mode.
       this.getView().setModel(new JSONModel({}), "ui");
 
+      // Only ServiceGroup/Admin may route a ticket — srv/handlers/ticket.js
+      // stripAssignmentFields is the actual security boundary; this just
+      // drives whether Support Team/Message Processor render as editable
+      // Selects or plain read-only text (see canAssign in the view).
+      this.getView().setModel(new JSONModel({ canAssign: false }), "role");
+      this._loadCurrentUserRole();
+
       // userId -> display name, for the read-only "Reported By" field.
       // Best-effort: loaded once here, formatUserName falls back to the raw
       // id until (or if) this resolves.
       this._mUserNames = {};
       this._loadUserNames();
+
+      // teamCode -> display name, for the read-only Support Team field
+      // shown to anyone who isn't ServiceGroup/Admin (see "role" above).
+      this._mTeamNames = {};
+      this._loadTeamNames();
 
       // The form is shared by two routes: "create" (new draft) and
       // "detail" (view an existing ticket). The view is cached and reused, so
@@ -88,6 +100,36 @@ sap.ui.define([
     formatUserName: function (sUserId) {
       if (!sUserId) { return ""; }
       return this._mUserNames[sUserId] || sUserId;
+    },
+
+    _loadTeamNames: function () {
+      var that = this;
+      var oBinding = this.getOwnerComponent().getModel().bindList("/SupportTeams");
+      oBinding.requestContexts(0, 999).then(function (aContexts) {
+        aContexts.forEach(function (oCtx) {
+          that._mTeamNames[oCtx.getProperty("teamCode")] = oCtx.getProperty("name");
+        });
+      }).catch(function () { /* best-effort */ });
+    },
+
+    formatTeamName: function (sCode) {
+      if (!sCode) { return ""; }
+      return this._mTeamNames[sCode] || sCode;
+    },
+
+    // isServiceGroup/isAdmin come from the server-side currentUser()
+    // function (derived from the authenticated identity, so a client can't
+    // forge it) — same call Dashboard.controller.js uses for its own
+    // role-gated UI.
+    _loadCurrentUserRole: function () {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+      var oAction = oModel.bindContext("/currentUser(...)");
+      oAction.execute().then(function () {
+        var oCtx = oAction.getBoundContext();
+        var bCanAssign = !!(oCtx.getProperty("isServiceGroup") || oCtx.getProperty("isAdmin"));
+        that.getView().getModel("role").setProperty("/canAssign", bCanAssign);
+      }).catch(function () { /* best-effort — fields stay read-only */ });
     },
 
     /**

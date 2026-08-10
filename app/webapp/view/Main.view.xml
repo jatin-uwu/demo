@@ -77,20 +77,33 @@
                 <Input value="{path: 'reportedBy', formatter: '.formatUserName'}" editable="false" width="100%"/>
               </VBox>
 
+              <!-- Routing is Service Group's call, not the reporter's (see
+                   service.cds role doc + srv/handlers/ticket.js
+                   stripAssignmentFields, the actual security boundary) —
+                   an editable Select only for ServiceGroup/Admin, plain
+                   read-only text for everyone else, same split
+                   ConsultantTicket.view.xml already uses for these two
+                   fields. -->
               <VBox class="formField">
                 <Label text="Support Team"/>
                 <Select selectedKey="{supportTeam}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                        visible="{role>/canAssign}"
                         items="{ path: '/SupportTeams', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
                   <core:Item key="{teamCode}" text="{name}"/>
                 </Select>
+                <Input value="{path: 'supportTeam', formatter: '.formatTeamName'}" editable="false" width="100%"
+                       visible="{= !${role>/canAssign} }"/>
               </VBox>
 
               <VBox class="formField">
                 <Label text="Message Processor"/>
                 <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                        visible="{role>/canAssign}"
                         items="{ path: '/Users', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
                   <core:Item key="{userId}" text="{name}"/>
                 </Select>
+                <Input value="{path: 'messageProcessor', formatter: '.formatUserName'}" editable="false" width="100%"
+                       visible="{= !${role>/canAssign} }"/>
               </VBox>
 
               <!-- Cascading categories. Each level is filled by the controller

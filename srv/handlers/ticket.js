@@ -29,10 +29,26 @@ const SYSTEM_FIELDS = [
 const CONSULTANT_LOCKED_TICKET_FIELDS = ['reportedBy', 'ticketType', 'messageProcessor', 'supportTeam'];
 const CONSULTANT_LOCKED_FORM_FIELDS = ['category1', 'category2', 'category3', 'category4', 'language', 'solutionCategory', 'recommendedPriority'];
 
+// Only ServiceGroup (or Admin) may set who / which team a ticket is routed
+// to — see the role doc atop service.cds ("ServiceGroup ... assigns them
+// to engineers"). A Consultant's own attempt is separately caught below by
+// restrictConsultantUpdate (CONSULTANT_LOCKED_TICKET_FIELDS); this closes
+// the same gap for the reporting Agent, which had no guard at all — the
+// End User ticket form's messageProcessor/supportTeam fields were plain
+// bound Selects, so a plain PATCH (or the initial CREATE) let the reporter
+// assign their own ticket, bypassing Service Group entirely.
+function stripAssignmentFields(req) {
+    if (req.user.is('ServiceGroup') || req.user.is('Admin')) return;
+    delete req.data.messageProcessor;
+    delete req.data.supportTeam;
+}
+
 
 async function beforeCreateTicket(req) {
 
     const data = req.data;
+
+    stripAssignmentFields(req);
 
     data.ticketNumber = await generateTicketNumber(data.ticketType);
     data.ticketID = data.ticketNumber;
@@ -158,6 +174,11 @@ async function onUpdateTicket(req, next) {
 
 
 async function stampSlaTimestamps(req) {
+
+    // Same reasoning as beforeCreateTicket: strip first, synchronously, so
+    // an Agent's attempted messageProcessor/supportTeam change is gone
+    // before this function's own bAssigneeChanging read below ever sees it.
+    stripAssignmentFields(req);
 
     // Strips locked fields (see restrictConsultantUpdate above) *before*
     // this function's own reads of req.data below, so a Consultant's

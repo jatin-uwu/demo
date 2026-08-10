@@ -166,6 +166,13 @@
               <Button text="Reset" icon="sap-icon://clear-filter" press=".onResetFilters"/>
               <Button id="tableExpandBtn" icon="sap-icon://full-screen" tooltip="Expand table" type="Transparent"
                       press=".onToggleTableExpand" class="tableExpandBtn"/>
+              <!-- Bulk Submit (any selected Drafts) and Assign (Service Group
+                   only, see service.cds assignTickets) — the handlers and the
+                   assignDialog above have always been fully wired for this
+                   table; only the buttons to trigger them were missing. -->
+              <Button text="Submit" icon="sap-icon://paper-plane" enabled="{sel>/hasSelection}" press=".onBulkSubmit"/>
+              <Button text="Assign Selected" icon="sap-icon://key-user-settings" type="Emphasized"
+                      visible="{sel>/isServiceGroup}" enabled="{sel>/hasSelection}" press=".onBulkAssign"/>
               <Button text="Delete" icon="sap-icon://delete" enabled="{sel>/canDelete}" press=".onBulkDelete"/>
               <Button text="New Ticket" icon="sap-icon://add" class="submitBtn" press=".onCreateTicket"/>
             </OverflowToolbar>
