@@ -288,12 +288,15 @@ async function onReadTicket(req, next) {
 
     const me = currentUserId(req);
 
-    if (req.user.is('Admin')) {
-
-    } else if (!me) {
+    if (!me) {
         req.query.where('1 = 0');
 
-    } else if (req.user.is('ServiceGroup')) {
+    // Admin included alongside ServiceGroup — same rule, not a bypass of it.
+    // A bare Admin branch used to skip row-scoping entirely, so every Draft
+    // from every reporter (nobody has submitted it yet — Service Group's own
+    // whole point is triaging submitted work) showed up wherever Admin has
+    // ServiceGroup-equivalent screen access, unlike a real ServiceGroup user.
+    } else if (req.user.is('ServiceGroup') || req.user.is('Admin')) {
         req.query.where(
             `(status != ${sql(STATUS_DRAFT)} or status is null)`
             + ` or reportedBy = ${sql(me)}`

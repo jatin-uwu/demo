@@ -880,11 +880,16 @@ sap.ui.define([
       var oData = this._oIncidentContext.getObject();
       var oForm = oData.incidentForm || {};
 
+      // Final Priority is deliberately not required here (and not even in
+      // this list) — it's ui>/vPriority-gated to Service Group/Consultant/
+      // Admin only (see Main.view.xml), set during triage after submission,
+      // never something the submitting Agent can see or fill in. Requiring
+      // it here made every ticket unsubmittable — "please fill Final
+      // Priority" for a field the Agent's own form never shows them.
       var aMissing = [];
       if (!oData.shortDescription) aMissing.push("Short Description");
       if (!oForm.impact)           aMissing.push("Impact");
       if (!oForm.urgency)          aMissing.push("Urgency");
-      if (!oData.priority)         aMissing.push("Final Priority");
       if (!oForm.description)      aMissing.push("Full Description");
 
       if (aMissing.length) {

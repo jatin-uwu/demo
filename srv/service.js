@@ -2,7 +2,7 @@ const cds = require('@sap/cds');
 
 const { beforeCreateTicket, afterCreateTicket, onUpdateTicket, onReadTicket, onSubmitTicket, restrictDeleteToDrafts, stampSlaTimestamps } = require('./handlers/ticket');
 const { onCurrentUser, onAssignTickets } = require('./handlers/dashboard');
-const { restrictChildByTicket, restrictChildByForm, restrictAttachmentWrite } = require('./handlers/consultant');
+const { restrictChildByTicket, restrictChildByForm, restrictAttachmentWrite, restrictIncidentFormWrite } = require('./handlers/consultant');
 
 /* =========================================================
    ITSM SERVICE — AGGREGATE ROOT ARCHITECTURE
@@ -85,5 +85,14 @@ module.exports = cds.service.impl(async function () {
     // write side by the same ownership scope, so a client can't attach a
     // file to (or edit/remove one from) a ticket outside their own scope.
     this.before(['CREATE', 'UPDATE', 'DELETE'], Attachments, restrictAttachmentWrite);
+
+    // IncidentForms is the other one: its own Updatable:false in service.cds
+    // used to block every legitimate deep-update too (Impact/Urgency/
+    // Description/categories on an already-saved Draft), so it's now open
+    // for UPDATE (Insert/Delete stay locked — deep-create through Tickets
+    // is the only legitimate way a form row is born). That reopens the same
+    // gap Attachments would have without a guard: a direct PATCH to
+    // /IncidentForms(ID) bypasses Tickets' own row scoping entirely.
+    this.before('UPDATE', IncidentForms, restrictIncidentFormWrite);
 
 });

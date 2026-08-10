@@ -2,9 +2,11 @@ sap.ui.define([
   "sap/ui/core/mvc/Controller",
   "sap/ui/model/Filter",
   "sap/ui/model/FilterOperator",
+  "sap/ui/model/Sorter",
+  "sap/ui/model/json/JSONModel",
   "sap/m/MessageToast",
   "sap/m/MessageBox"
-], function (Controller, Filter, FilterOperator, MessageToast, MessageBox) {
+], function (Controller, Filter, FilterOperator, Sorter, JSONModel, MessageToast, MessageBox) {
   "use strict";
 
   return Controller.extend("itsm.ui.controller.ServiceGroupTickets", {
@@ -42,6 +44,7 @@ sap.ui.define([
         // authorization request uncontended (so the guard resolves fast) and
         // avoids fetching lookup data for a user who is about to be bounced.
         that._loadLookupMaps();
+        that._loadFilterOptions();
         var oBinding = that.byId("sgTicketTable").getBinding("items");
         if (oBinding) { oBinding.refresh(); }
       }).catch(function () {
@@ -73,6 +76,92 @@ sap.ui.define([
         loadType("PRIORITY", that._mPriorityName),
         pUsers
       ]).catch(function () { /* best-effort — columns fall back to raw codes */ });
+    },
+
+    /* ---------------------------------------------------------
+     * Filter dropdowns above the table — same "All ..." + code/name list
+     * pattern the End User dashboard's table filters use (Dashboard.
+     * controller.js _loadFilterOptions), scoped to the columns this table
+     * actually shows: Status, Priority, Assigned To.
+     * ------------------------------------------------------- */
+    _loadFilterOptions: function () {
+      var oModel = this.getOwnerComponent().getModel();
+
+      function load(sType, sAllLabel) {
+        var oBinding = oModel.bindList("/LookupValues", null, [new Sorter("sequence")], [
+          new Filter("lookupType", FilterOperator.EQ, sType)
+        ]);
+        return oBinding.requestContexts(0, 50).then(function (aCtx) {
+          var aItems = aCtx.map(function (c) {
+            return { code: c.getProperty("code"), name: c.getProperty("name") };
+          });
+          aItems.unshift({ code: "", name: sAllLabel });
+          return aItems;
+        });
+      }
+
+      function loadUsers(sAllLabel) {
+        var oBinding = oModel.bindList("/Users", null, [new Sorter("name")], [
+          new Filter("isActive", FilterOperator.EQ, true)
+        ]);
+        return oBinding.requestContexts(0, 100).then(function (aCtx) {
+          var aItems = aCtx.map(function (c) { return { code: c.getProperty("userId"), name: c.getProperty("name") }; });
+          aItems.unshift({ code: "", name: sAllLabel });
+          return aItems;
+        });
+      }
+
+      var that = this;
+      Promise.all([
+        load("STATUS", "All Statuses"),
+        load("PRIORITY", "All Priorities"),
+        loadUsers("All Assignees")
+      ]).then(function (aRes) {
+        that.getView().setModel(new JSONModel({
+          statuses: aRes[0], priorities: aRes[1], assignees: aRes[2]
+        }), "filters");
+      });
+    },
+
+    onFilterChange: function () {
+      this._applyFilters();
+    },
+
+    /* ---------------------------------------------------------
+     * Combine status + priority + assignee + search into one filter set —
+     * same shape as Dashboard.controller.js's _applyFilters, so a dropdown
+     * pick and a search term compose instead of one clobbering the other.
+     * ------------------------------------------------------- */
+    _applyFilters: function () {
+      var aFilters = [];
+
+      var sStatus = this.byId("statusFilter").getSelectedKey();
+      if (sStatus) { aFilters.push(new Filter("status", FilterOperator.EQ, sStatus)); }
+
+      var sPriority = this.byId("priorityFilter").getSelectedKey();
+      if (sPriority) { aFilters.push(new Filter("priority", FilterOperator.EQ, sPriority)); }
+
+      var sAssignee = this.byId("assigneeFilter").getSelectedKey();
+      if (sAssignee) { aFilters.push(new Filter("messageProcessor", FilterOperator.EQ, sAssignee)); }
+
+      if (this._sSearch) {
+        // caseSensitive:false — not a manual tolower(path) hack (that breaks
+        // the v4 binding's metadata type lookup for the filter path and
+        // kills search entirely, see Dashboard.controller.js's onSearch).
+        // This is the framework's own supported option: it wraps both the
+        // property and the value in tolower() itself when it builds the
+        // request, so the path stays a real property and type resolution
+        // still works.
+        aFilters.push(new Filter({
+          filters: [
+            new Filter({ path: "ticketNumber", operator: FilterOperator.Contains, value1: this._sSearch, caseSensitive: false }),
+            new Filter({ path: "shortDescription", operator: FilterOperator.Contains, value1: this._sSearch, caseSensitive: false })
+          ],
+          and: false
+        }));
+      }
+
+      this.byId("sgTicketTable").getBinding("items").filter(aFilters);
     },
 
     /* ---------------------------------------------------------
@@ -147,18 +236,8 @@ sap.ui.define([
     },
 
     onSearch: function (oEvent) {
-      var sQuery = (oEvent.getParameter("query") || oEvent.getParameter("newValue") || "").trim();
-      var aFilters = [];
-      if (sQuery) {
-        aFilters.push(new Filter({
-          filters: [
-            new Filter("ticketNumber", FilterOperator.Contains, sQuery),
-            new Filter("shortDescription", FilterOperator.Contains, sQuery)
-          ],
-          and: false
-        }));
-      }
-      this.byId("sgTicketTable").getBinding("items").filter(aFilters);
+      this._sSearch = (oEvent.getParameter("query") || oEvent.getParameter("newValue") || "").trim();
+      this._applyFilters();
     },
 
     /* ---------------------------------------------------------

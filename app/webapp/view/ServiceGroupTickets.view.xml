@@ -70,6 +70,15 @@
           <OverflowToolbar style="Clear">
             <Title text="Ticket List" level="H5"/>
             <ToolbarSpacer/>
+            <Select id="statusFilter" width="9rem" items="{filters>/statuses}" change=".onFilterChange">
+              <core:Item key="{filters>code}" text="{filters>name}"/>
+            </Select>
+            <Select id="priorityFilter" width="9rem" items="{filters>/priorities}" change=".onFilterChange">
+              <core:Item key="{filters>code}" text="{filters>name}"/>
+            </Select>
+            <Select id="assigneeFilter" width="9rem" items="{filters>/assignees}" change=".onFilterChange">
+              <core:Item key="{filters>code}" text="{filters>name}"/>
+            </Select>
             <SearchField width="16rem" placeholder="Search # or description" search=".onSearch" liveChange=".onSearch"/>
             <Button text="Assign Selected" icon="sap-icon://key-user-settings" type="Emphasized" press=".onBulkAssign"/>
           </OverflowToolbar>

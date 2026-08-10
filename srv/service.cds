@@ -100,9 +100,18 @@ service ITSMService {
     };
 
 
+    // Updatable stays true (unlike its Deletable/standalone-Insert lockdown
+    // below): the Main form's every post-first-save edit — Impact, Urgency,
+    // Description, categories, Solution Category — is a deep PATCH through
+    // Tickets(id)/incidentForm/..., which CAP authorizes against this
+    // projection's own capability, not just the parent Ticket's. Locking it
+    // like the fully-unused sibling entities below silently broke every
+    // "keep editing a saved Draft" save with "Entity IncidentForms is not
+    // updatable" — the very first save (a deep INSERT) is unaffected since
+    // that's authorized via the parent instead, which is what made this easy
+    // to miss.
     @Capabilities: {
         InsertRestrictions.Insertable: false,
-        UpdateRestrictions.Updatable : false,
         DeleteRestrictions.Deletable : false
     }
     entity IncidentForms as projection on txn.IncidentForm;
@@ -189,7 +198,13 @@ service ITSMService {
         entity directly and the UPDATE hooks never fire for it.
         Returns the number of tickets actually changed.
     =====================================================*/
-    @requires: 'ServiceGroup'
+    // Admin included alongside ServiceGroup — same unrestricted carve-out
+    // ticket.js's restrictOwnerUpdate/stripAssignmentFields use everywhere
+    // else. Dashboard.controller.js already shows "Assign Selected" to
+    // both (isServiceGroup is set true for isAdmin too), so an Admin-only
+    // requirement here left Admin users seeing the button but getting a
+    // 403 Forbidden when they actually clicked it.
+    @requires: ['ServiceGroup', 'Admin']
     action assignTickets(
         tickets          : many String(30),   // Ticket.ticketID
         messageProcessor : String(50),        // User.userId

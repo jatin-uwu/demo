@@ -61,32 +61,41 @@ async function restrictChildByForm(req) {
 
 /* ---------------------------------------------------------
  * Write-side counterpart, for entities writable standalone (not only as
- * part of a Ticket deep update) — currently just Attachments; every other
- * child entity is locked Insertable:false in service.cds. Rejects a
- * CREATE/UPDATE/DELETE against a ticket outside the caller's ownerScope,
- * the same rule restrictChildByTicket enforces for reads.
+ * part of a Ticket deep update) — Attachments (all of CREATE/UPDATE/DELETE)
+ * and IncidentForms (UPDATE only — its Insert/Delete stay locked in
+ * service.cds since deep-create through Tickets is the only legitimate way
+ * a form row comes into existence); every other child entity is locked
+ * Insertable:false there. Rejects a write against a ticket outside the
+ * caller's ownerScope, the same rule restrictChildByTicket enforces for
+ * reads. Both entities carry the same direct `ticket` association (column:
+ * ticket_ticketID) and the same `ID` key, so one factory covers both.
  * ------------------------------------------------------- */
-async function restrictAttachmentWrite(req) {
-    const scope = ownerScope(req);
-    if (!scope) return; // Admin / ServiceGroup — unrestricted
+function restrictChildWrite(sEntityName) {
+    return async function (req) {
+        const scope = ownerScope(req);
+        if (!scope) return; // Admin / ServiceGroup — unrestricted
 
-    let ticketID;
-    if (req.event === 'CREATE') {
-        ticketID = req.data.ticket_ticketID;
-    } else {
-        const { Attachment } = cds.entities('itsm.txn');
-        const id = keyOf(req, 'ID');
-        const row = id && await SELECT.one.from(Attachment).columns('ticket_ticketID').where({ ID: id });
-        ticketID = row && row.ticket_ticketID;
-    }
+        let ticketID;
+        if (req.event === 'CREATE') {
+            ticketID = req.data.ticket_ticketID;
+        } else {
+            const Entity = cds.entities('itsm.txn')[sEntityName];
+            const id = keyOf(req, 'ID');
+            const row = id && await SELECT.one.from(Entity).columns('ticket_ticketID').where({ ID: id });
+            ticketID = row && row.ticket_ticketID;
+        }
 
-    if (!ticketID) return req.reject(400, 'ticket reference is required.');
+        if (!ticketID) return req.reject(400, 'ticket reference is required.');
 
-    const { Ticket } = cds.entities('itsm.txn');
-    const ticket = await SELECT.one.from(Ticket).columns(scope.field).where({ ticketID });
-    if (!ticket || ticket[scope.field] !== scope.value) {
-        return req.reject(403, 'You are not authorized for this ticket.');
-    }
+        const { Ticket } = cds.entities('itsm.txn');
+        const ticket = await SELECT.one.from(Ticket).columns(scope.field).where({ ticketID });
+        if (!ticket || ticket[scope.field] !== scope.value) {
+            return req.reject(403, 'You are not authorized for this ticket.');
+        }
+    };
 }
 
-module.exports = { restrictChildByTicket, restrictChildByForm, restrictAttachmentWrite };
+const restrictAttachmentWrite = restrictChildWrite('Attachment');
+const restrictIncidentFormWrite = restrictChildWrite('IncidentForm');
+
+module.exports = { restrictChildByTicket, restrictChildByForm, restrictAttachmentWrite, restrictIncidentFormWrite };
