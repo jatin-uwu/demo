@@ -2,7 +2,7 @@ const cds = require('@sap/cds');
 const { currentUserId, keyOf } = require('./user');
 
 const TICKET_FIELDS = [
-    'ticketType', 'shortDescription', 'status', 'priority',
+    'ticketType', 'shortDescription', 'status', 'subStatus', 'priority',
     'reportedBy', 'messageProcessor', 'supportTeam',
     'firstResponseAt', 'dueAt', 'completedAt', 'assignedAt'
 ];

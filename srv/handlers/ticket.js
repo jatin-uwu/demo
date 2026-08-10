@@ -17,6 +17,24 @@ const STATUS_NEW = 'NEW';
 // it reaches CONFIRMED or CLOSED. Both are set once only.
 const RESOLVED_STATUSES = ['CONFIRMED', 'CLOSED'];
 
+// Assigning a consultant moves an active ticket here automatically (see
+// stampSlaTimestamps + srv/handlers/dashboard.js). ASSIGNED is a real STATUS
+// lookup value (db/data/itsm.master-LookupValue.csv).
+const STATUS_ASSIGNED = 'ASSIGNED';
+
+// Recommended Priority = f(Impact, Urgency) — the standard ITSM matrix. Used
+// to (re)derive IncidentForm.recommendedPriority whenever Impact or Urgency is
+// set, so the Service Group sees a system recommendation rather than typing one.
+const PRIORITY_MATRIX = {
+    HIGH:   { HIGH: 'P1', MEDIUM: 'P2', LOW: 'P3' },
+    MEDIUM: { HIGH: 'P2', MEDIUM: 'P3', LOW: 'P4' },
+    LOW:    { HIGH: 'P3', MEDIUM: 'P4', LOW: 'P4' }
+};
+function deriveRecommendedPriority(impact, urgency) {
+    const row = PRIORITY_MATRIX[String(impact || '').toUpperCase()];
+    return row ? (row[String(urgency || '').toUpperCase()] || null) : null;
+}
+
 const SYSTEM_FIELDS = [
     'ticketID', 'ticketNumber', 'reportedBy',
     'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy'
@@ -39,6 +57,12 @@ async function beforeCreateTicket(req) {
 
     data.status = STATUS_DRAFT;
     data.reportedBy = currentUserId(req);
+
+    // Seed the system recommendation if the Agent already supplied Impact/Urgency.
+    if (data.incidentForm && (data.incidentForm.impact || data.incidentForm.urgency)) {
+        const rec = deriveRecommendedPriority(data.incidentForm.impact, data.incidentForm.urgency);
+        if (rec) data.incidentForm.recommendedPriority = rec;
+    }
 
     if (Array.isArray(data.comments) && data.comments.length) {
         const author = currentUserId(req);
@@ -147,6 +171,19 @@ async function onUpdateTicket(req, next) {
         }
     }
 
+    // Re-derive Recommended Priority whenever Impact or Urgency is (re)assessed
+    // — using the value being sent, falling back to what's already stored for
+    // the other half of the pair. Reuses the existing recommendedPriority field.
+    if (data.incidentForm && ticketID
+        && ('impact' in data.incidentForm || 'urgency' in data.incidentForm)) {
+        const storedForm = await SELECT.one.from(cds.entities('ITSMService').IncidentForms)
+            .columns('impact', 'urgency').where({ ticket_ticketID: ticketID });
+        const impact = 'impact' in data.incidentForm ? data.incidentForm.impact : storedForm && storedForm.impact;
+        const urgency = 'urgency' in data.incidentForm ? data.incidentForm.urgency : storedForm && storedForm.urgency;
+        const rec = deriveRecommendedPriority(impact, urgency);
+        if (rec) data.incidentForm.recommendedPriority = rec;
+    }
+
     await captureAggregate(req);
 
     const result = await next();
@@ -193,6 +230,16 @@ async function stampSlaTimestamps(req) {
     // PATCH or (see srv/handlers/dashboard.js) the bulk assignTickets action.
     if (bAssigneeChanging && req.data.messageProcessor !== stored.messageProcessor) {
         req.data.assignedAt = sNow;
+
+        // Assigning a consultant to an active ticket auto-moves it to ASSIGNED
+        // — the Service Group never picks ASSIGNED manually. Skips drafts and
+        // respects an explicit status the client sent in the same request.
+        if (req.data.messageProcessor
+            && stored.status !== STATUS_DRAFT
+            && stored.status !== STATUS_ASSIGNED
+            && !('status' in req.data)) {
+            req.data.status = STATUS_ASSIGNED;
+        }
     }
 }
 

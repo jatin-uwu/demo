@@ -76,6 +76,10 @@ context txn {
         // Generic information
         shortDescription : String(255);
         status           : String(50);
+        // Consultant-owned detail qualifier for the current status (e.g.
+        // status IN_PROCESS + subStatus INVESTIGATION). Codes come from the
+        // SUBSTATUS lookup, parented by status. No existing field carried this.
+        subStatus        : String(50);
         priority         : String(50);
 
         // Ownership (plain login ids / team codes, not associations)

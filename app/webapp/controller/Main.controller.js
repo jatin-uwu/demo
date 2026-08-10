@@ -61,6 +61,14 @@ sap.ui.define([
       // Drives header buttons and form editability by mode.
       this.getView().setModel(new JSONModel({}), "ui");
 
+      // Who is looking at the form. Agent is the base role (none of the
+      // elevated flags set). Fetched once; _applyRolePermissions() turns
+      // these into the per-field-group editable flags the view binds to.
+      // Defaults to Agent-like so the create/intake flow is never blocked
+      // in the brief window before currentUser() resolves.
+      this._role = { isServiceGroup: false, isConsultant: false, isAdmin: false, isAgent: true };
+      this._loadRole();
+
       // userId -> display name, for the read-only "Reported By" field.
       // Best-effort: loaded once here, formatUserName falls back to the raw
       // id until (or if) this resolves.
@@ -88,6 +96,97 @@ sap.ui.define([
     formatUserName: function (sUserId) {
       if (!sUserId) { return ""; }
       return this._mUserNames[sUserId] || sUserId;
+    },
+
+    /**
+     * Resolve the caller's role once (server-computed, so it works the same
+     * with mocked users locally and XSUAA scopes in Cloud Foundry). Re-applies
+     * permissions afterwards because the initial _setMode may have run under
+     * the Agent-like default while this was still in flight.
+     */
+    _loadRole: function () {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+      var oAction = oModel.bindContext("/currentUser(...)");
+      oAction.execute().then(function () {
+        var oCtx = oAction.getBoundContext();
+        var bSG = !!oCtx.getProperty("isServiceGroup");
+        var bCon = !!oCtx.getProperty("isConsultant");
+        var bAdmin = !!oCtx.getProperty("isAdmin");
+        that._role = {
+          isServiceGroup: bSG,
+          isConsultant: bCon,
+          isAdmin: bAdmin,
+          // Agent is the base role: an authenticated user with none of the
+          // elevated roles. Admin is a superuser and can act as any of them.
+          isAgent: !bSG && !bCon && !bAdmin
+        };
+        that._applyRolePermissions();
+      }).catch(function () { /* keep the Agent-like default */ });
+    },
+
+    /**
+     * Turn the current mode's "may the form be edited at all" gate
+     * (ui>/formEditable) plus the caller's role into per-field-group editable
+     * flags the view binds to. One form, three audiences:
+     *   editIntake  — Agent's intake fields (type, summary, categories)
+     *   editAssess  — Service Group's classification + assignment fields
+     *   editWork    — Consultant's status / sub-status / work notes
+     * Admin gets all three. Everyone else sees the other groups read-only.
+     */
+    _applyRolePermissions: function () {
+      var oUi = this.getView().getModel("ui");
+      if (!oUi) { return; }
+      var bFormEditable = !!oUi.getProperty("/formEditable");
+      var r = this._role;
+      var bAdmin = r.isAdmin;
+
+      oUi.setProperty("/editIntake", bFormEditable && (r.isAgent || bAdmin));
+      oUi.setProperty("/editAssess", bFormEditable && (r.isServiceGroup || bAdmin));
+      oUi.setProperty("/editWork", bFormEditable && (r.isConsultant || bAdmin));
+
+      // Only Agents (and Admins) create tickets; the Service Group and
+      // Consultant work existing ones. Submit is likewise an Agent action.
+      oUi.setProperty("/canCreate", r.isAgent || bAdmin);
+
+      // --- Visibility (whole field shown/hidden), independent of edit rights.
+      // Agent sees only what's needed to raise the ticket; the Service Group
+      // is the triage hub and sees everything; the Consultant sees the Agent's
+      // context (read-only) plus their own work fields — nothing else.
+      var bAgent = r.isAgent, bSG = r.isServiceGroup, bCon = r.isConsultant;
+      // Assignment group + processor: set by SG, seen (read-only) by Consultant.
+      oUi.setProperty("/vAssign", bSG || bCon || bAdmin);
+      // Auto-suggested priority: a triage aid for Agent/SG, not the Consultant.
+      oUi.setProperty("/vRecommended", bAgent || bSG || bAdmin);
+      // Final priority: decided by SG, seen by the Consultant, hidden from Agent.
+      oUi.setProperty("/vPriority", bSG || bCon || bAdmin);
+      // Status / Sub Status: the working lifecycle — SG and Consultant only.
+      oUi.setProperty("/vStatus", bSG || bCon || bAdmin);
+      // Solution category, SLA and the response/due dates: SG triage only.
+      oUi.setProperty("/vProcessing", bSG || bAdmin);
+      // Technical relationships (RFC / CI): SG and the Consultant who works them.
+      oUi.setProperty("/vTechnical", bSG || bCon || bAdmin);
+
+      // Status / Sub Status also depend on the ticket's current status, which
+      // is on the default model — mixing models in an inline `visible`
+      // expression proved unreliable here, so the combined flag is computed.
+      this._applyStatusVisibility();
+    },
+
+    /**
+     * Status is shown once a ticket has left Draft; Sub Status once it is past
+     * New — but only to the roles allowed to see the lifecycle at all
+     * (ui>/vStatus). Recomputed on load, on mode change and on status change.
+     */
+    _applyStatusVisibility: function () {
+      var oUi = this.getView().getModel("ui");
+      if (!oUi) { return; }
+      var bRole = !!oUi.getProperty("/vStatus");
+      var sStatus = this._oIncidentContext
+        && this._oIncidentContext.getProperty("status");
+      oUi.setProperty("/vStatusField", bRole && sStatus !== STATUS_DRAFT);
+      oUi.setProperty("/vSubStatusField",
+        bRole && sStatus !== STATUS_DRAFT && sStatus !== STATUS_NEW);
     },
 
     /**
@@ -143,6 +242,7 @@ sap.ui.define([
         }
       };
       this.getView().getModel("ui").setData(mModes[sMode]);
+      this._applyRolePermissions();
       this._syncFormFade(mModes[sMode].formEditable);
     },
 
@@ -170,6 +270,16 @@ sap.ui.define([
      * list rather than being auto-resumed here.)
      * ------------------------------------------------------- */
     _onCreateMatched: function () {
+      // Service Group and Consultant work existing tickets — they never raise
+      // new ones. If the role isn't known yet (currentUser still in flight),
+      // let it through: the server also rejects a non-Agent CREATE, so this is
+      // just the friendly first line of defence.
+      var r = this._role;
+      if (r && !r.isAgent && !r.isAdmin) {
+        MessageToast.show("Only agents can create tickets.");
+        this.getOwnerComponent().getRouter().navTo("dashboard", {}, true);
+        return;
+      }
       this._setAttachmentsList([]);
       this.getView().getModel("hist").setProperty("/list", []);
       this._createDraftIncident();
@@ -214,6 +324,10 @@ sap.ui.define([
         // mode (where Submit is reachable) instead of the read-only view,
         // which doesn't even show a Submit button.
         that._setMode(sStatus === STATUS_DRAFT ? "edit" : that._sMode);
+        // Now that the real status is known, refresh status-dependent visibility.
+        that._applyStatusVisibility();
+        // Scope the Sub Status list to this ticket's current Status.
+        that._refreshSubStatus(sStatus);
       }).catch(function () { /* ignore */ });
       this._setupCategories();
       this._loadHistory(sId);
@@ -304,6 +418,37 @@ sap.ui.define([
      * ------------------------------------------------------- */
     onEdit: function () {
       this._setMode("edit");
+    },
+
+    /* ---------------------------------------------------------
+     * Sub Status is scoped to the chosen Status: the SUBSTATUS lookup
+     * rows are parented (parent/code) by their Status, so the list only
+     * ever offers the qualifiers that belong to the current Status.
+     * Refreshed on load and whenever the Consultant changes Status.
+     * ------------------------------------------------------- */
+    onStatusChange: function () {
+      // The previously-picked sub status may not belong under the new
+      // status — clear it so a stale pairing isn't silently saved.
+      if (this._oIncidentContext) {
+        this._oIncidentContext.setProperty("subStatus", null);
+      }
+      var sStatus = this._oIncidentContext
+        && this._oIncidentContext.getProperty("status");
+      this._applyStatusVisibility();
+      this._refreshSubStatus(sStatus);
+    },
+
+    _refreshSubStatus: function (sStatus) {
+      var oCombo = this.byId("cbSubStatus");
+      if (!oCombo) { return; }
+      var oBinding = oCombo.getBinding("items");
+      if (!oBinding) { return; }
+      // No status yet -> a filter that matches nothing, so the field stays
+      // empty rather than offering qualifiers from every status at once.
+      var aFilters = sStatus
+        ? [new Filter("parent/code", FilterOperator.EQ, sStatus)]
+        : [new Filter("parent/code", FilterOperator.EQ, "__none__")];
+      oBinding.filter(aFilters);
     },
 
     onBack: function () {

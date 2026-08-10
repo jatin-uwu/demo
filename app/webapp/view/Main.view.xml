@@ -64,7 +64,7 @@
 
               <VBox class="formField">
                 <Label text="Ticket Type"/>
-                <Select selectedKey="{ticketType}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                <Select selectedKey="{ticketType}" forceSelection="false" enabled="{ui>/editIntake}" width="100%"
                         items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'TICKETTYPE' and isActive eq true&quot;, $orderby: 'sequence' } }">
                   <core:Item key="{code}" text="{name}"/>
                 </Select>
@@ -77,17 +77,17 @@
                 <Input value="{path: 'reportedBy', formatter: '.formatUserName'}" editable="false" width="100%"/>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vAssign}">
                 <Label text="Support Team"/>
-                <Select selectedKey="{supportTeam}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                <Select selectedKey="{supportTeam}" forceSelection="false" enabled="{ui>/editAssess}" width="100%"
                         items="{ path: '/SupportTeams', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
                   <core:Item key="{teamCode}" text="{name}"/>
                 </Select>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vAssign}">
                 <Label text="Message Processor"/>
-                <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/formEditable}" width="100%"
+                <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/editAssess}" width="100%"
                         items="{ path: '/Users', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
                   <core:Item key="{userId}" text="{name}"/>
                 </Select>
@@ -102,7 +102,7 @@
                 <Label text="Category 1"/>
                 <Select id="selCategory1" selectedKey="{incidentForm/category1}"
                         items="{cat>/levels/0/items}"
-                        enabled="{cat>/levels/0/enabled}"
+                        enabled="{= (${ui>/editIntake} || ${ui>/editAssess}) &amp;&amp; ${cat>/levels/0/enabled} }"
                         busy="{cat>/levels/0/busy}"
                         busyIndicatorDelay="0"
                         forceSelection="false"
@@ -117,7 +117,7 @@
                 <Label text="Category 2"/>
                 <Select id="selCategory2" selectedKey="{incidentForm/category2}"
                         items="{cat>/levels/1/items}"
-                        enabled="{cat>/levels/1/enabled}"
+                        enabled="{= (${ui>/editIntake} || ${ui>/editAssess}) &amp;&amp; ${cat>/levels/1/enabled} }"
                         busy="{cat>/levels/1/busy}"
                         busyIndicatorDelay="0"
                         forceSelection="false"
@@ -132,7 +132,7 @@
                 <Label text="Category 3"/>
                 <Select id="selCategory3" selectedKey="{incidentForm/category3}"
                         items="{cat>/levels/2/items}"
-                        enabled="{cat>/levels/2/enabled}"
+                        enabled="{= (${ui>/editIntake} || ${ui>/editAssess}) &amp;&amp; ${cat>/levels/2/enabled} }"
                         busy="{cat>/levels/2/busy}"
                         busyIndicatorDelay="0"
                         forceSelection="false"
@@ -147,7 +147,7 @@
                 <Label text="Category 4"/>
                 <Select id="selCategory4" selectedKey="{incidentForm/category4}"
                         items="{cat>/levels/3/items}"
-                        enabled="{cat>/levels/3/enabled}"
+                        enabled="{= (${ui>/editIntake} || ${ui>/editAssess}) &amp;&amp; ${cat>/levels/3/enabled} }"
                         busy="{cat>/levels/3/busy}"
                         busyIndicatorDelay="0"
                         forceSelection="false"
@@ -158,9 +158,9 @@
                 <Text text="No subcategories available" visible="{cat>/levels/3/noChildren}" class="noSubText"/>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vProcessing}">
                 <Label text="Solution Category"/>
-                <Select selectedKey="{incidentForm/solutionCategory}" width="100%"
+                <Select selectedKey="{incidentForm/solutionCategory}" enabled="{ui>/editAssess}" width="100%"
                         items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'SOLUTION' and isActive eq true&quot;, $orderby: 'sequence' } }">
                   <core:Item key="{code}" text="{name}"/>
                 </Select>
@@ -168,7 +168,7 @@
 
               <VBox class="formField formFieldWide">
                 <Label text="Description" required="true"/>
-                <TextArea rows="2" width="100%" editable="{ui>/formEditable}"
+                <TextArea rows="2" width="100%" editable="{ui>/editIntake}"
                   value="{shortDescription}"
                   placeholder="Provide the precise summary of the incident."
                   class="descriptionArea"/>
@@ -193,17 +193,30 @@
                    Draft, and once it's visible, Draft is excluded from the
                    pickable statuses (an agent editing an already-submitted
                    ticket shouldn't be able to send it back to Draft). -->
-              <VBox class="formField" visible="{= ${status} !== 'DRAFT' }">
+              <VBox class="formField" visible="{ui>/vStatusField}">
                 <Label text="Status"/>
-                <ComboBox selectedKey="{status}" enabled="{ui>/formEditable}" width="100%"
+                <ComboBox selectedKey="{status}" enabled="{ui>/editWork}" width="100%" change=".onStatusChange"
                           items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'STATUS' and isActive eq true and code ne 'DRAFT'&quot;, $orderby: 'sequence' } }">
+                  <core:Item key="{code}" text="{name}"/>
+                </ComboBox>
+              </VBox>
+
+              <!-- Sub Status is the Consultant's detail qualifier for the
+                   current Status (e.g. IN_PROCESS + INVESTIGATION). The whole
+                   SUBSTATUS lookup is offered; the codes are parented by
+                   Status in master data, so the meaningful pairings are
+                   guided by naming rather than a hard runtime filter. -->
+              <VBox class="formField" visible="{ui>/vSubStatusField}">
+                <Label text="Sub Status"/>
+                <ComboBox id="cbSubStatus" selectedKey="{subStatus}" enabled="{ui>/editWork}" width="100%"
+                          items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'SUBSTATUS' and isActive eq true&quot;, $orderby: 'sequence' } }">
                   <core:Item key="{code}" text="{name}"/>
                 </ComboBox>
               </VBox>
 
               <VBox class="formField">
                 <Label text="Impact" required="true"/>
-                <ComboBox selectedKey="{incidentForm/impact}" enabled="{ui>/formEditable}" width="100%"
+                <ComboBox selectedKey="{incidentForm/impact}" enabled="{= ${ui>/editIntake} || ${ui>/editAssess} }" width="100%"
                           items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'IMPACT' and isActive eq true&quot;, $orderby: 'sequence' } }">
                   <core:Item key="{code}" text="{name}"/>
                 </ComboBox>
@@ -211,26 +224,26 @@
 
               <VBox class="formField">
                 <Label text="Urgency" required="true"/>
-                <ComboBox selectedKey="{incidentForm/urgency}" enabled="{ui>/formEditable}" width="100%"
+                <ComboBox selectedKey="{incidentForm/urgency}" enabled="{= ${ui>/editIntake} || ${ui>/editAssess} }" width="100%"
                           items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'URGENCY' and isActive eq true&quot;, $orderby: 'sequence' } }">
                   <core:Item key="{code}" text="{name}"/>
                 </ComboBox>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vRecommended}">
                 <Label text="Recommended Priority"/>
                 <Input value="{incidentForm/recommendedPriority}" editable="false" placeholder="Auto-suggested" width="100%"/>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vPriority}">
                 <Label text="Priority" required="true"/>
-                <ComboBox selectedKey="{priority}" enabled="{ui>/formEditable}" width="100%"
+                <ComboBox selectedKey="{priority}" enabled="{ui>/editAssess}" width="100%"
                           items="{ path: '/LookupValues', parameters: { $filter : &quot;lookupType eq 'PRIORITY' and isActive eq true&quot;, $orderby: 'sequence' } }">
                   <core:Item key="{code}" text="{name}"/>
                 </ComboBox>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vProcessing}">
                 <Label text="SLA"/>
                 <ObjectStatus
                   text="{parts: ['priority','createdAt','firstResponseAt','completedAt'], formatter: '.formatSlaText'}"
@@ -243,15 +256,15 @@
                 <Input value="{path: 'createdAt', formatter: '.formatDateTime'}" editable="false" width="100%"/>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vProcessing}">
                 <Label text="First Response By"/>
-                <DateTimePicker editable="{ui>/formEditable}" width="100%"
+                <DateTimePicker editable="{ui>/editAssess}" width="100%"
                   value="{path: 'firstResponseAt', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vProcessing}">
                 <Label text="Due By"/>
-                <DateTimePicker editable="{ui>/formEditable}" width="100%"
+                <DateTimePicker editable="{ui>/editAssess}" width="100%"
                   value="{path: 'dueAt', type: 'sap.ui.model.odata.type.DateTimeOffset', constraints: { V4: true }}"/>
               </VBox>
 
@@ -270,19 +283,19 @@
             <Text text="RELATIONSHIPS &amp; DESCRIPTION" class="sectionPill"/>
             <VBox class="formGrid">
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vTechnical}">
                 <Label text="Related Request for Change"/>
-                <Input value="{incidentForm/relatedRFC}" showValueHelp="true" width="100%"/>
+                <Input value="{incidentForm/relatedRFC}" editable="{ui>/editWork}" showValueHelp="true" width="100%"/>
               </VBox>
 
-              <VBox class="formField">
+              <VBox class="formField" visible="{ui>/vTechnical}">
                 <Label text="Configuration Item"/>
-                <Input value="{incidentForm/configurationItem}" showValueHelp="true" width="100%"/>
+                <Input value="{incidentForm/configurationItem}" editable="{ui>/editWork}" showValueHelp="true" width="100%"/>
               </VBox>
 
               <VBox class="formField formFieldWide">
                 <Label text="Full Description" required="true"/>
-                <TextArea rows="2" width="100%" editable="{ui>/formEditable}"
+                <TextArea rows="2" width="100%" editable="{= ${ui>/editIntake} || ${ui>/editWork} }"
                   growing="true" growingMaxLines="25"
                   value="{incidentForm/description}"
                   placeholder="Enter detailed technical notes and incident analysis..."
@@ -313,7 +326,7 @@
                 buttonText="Upload"
                 style="Transparent"
                 multiple="true"
-                enabled="{ui>/formEditable}"
+                enabled="{= ${ui>/editIntake} || ${ui>/editWork} }"
                 change=".onFileSelected"
                 class="attachmentsUploadBtn"/>
             </HBox>
@@ -335,7 +348,7 @@
                     <Text text="{attachments>uploadedBy}"/>
                     <Text text="{attachments>uploadedOn}"/>
                     <Button icon="sap-icon://decline" type="Transparent" tooltip="Remove"
-                            enabled="{ui>/formEditable}" press=".onAttachmentRemove"/>
+                            enabled="{= ${ui>/editIntake} || ${ui>/editWork} }" press=".onAttachmentRemove"/>
                   </cells>
                 </ColumnListItem>
               </items>

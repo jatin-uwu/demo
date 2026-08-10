@@ -50,7 +50,7 @@ async function onAssignTickets(req) {
     }
 
     const before = await SELECT.from(Ticket)
-        .columns('ticketID', 'messageProcessor', 'supportTeam')
+        .columns('ticketID', 'messageProcessor', 'supportTeam', 'status')
         .where({ ticketID: { in: tickets } });
     if (before.length === 0) return 0;
 
@@ -74,6 +74,20 @@ async function onAssignTickets(req) {
     if (reassigned.length) {
         await UPDATE(Ticket).set({ assignedAt: new Date().toISOString() })
             .where({ ticketID: { in: reassigned.map(r => r.ticketID) } });
+    }
+
+    // Assigning a consultant moves an active ticket to ASSIGNED automatically
+    // (the Service Group never picks ASSIGNED from a dropdown). Drafts aren't
+    // assignable; tickets already ASSIGNED stay put.
+    if (messageProcessor != null) {
+        const toAssign = reassigned.filter(r => r.status !== 'DRAFT' && r.status !== 'ASSIGNED');
+        if (toAssign.length) {
+            await UPDATE(Ticket).set({ status: 'ASSIGNED' })
+                .where({ ticketID: { in: toAssign.map(r => r.ticketID) } });
+            for (const row of toAssign) {
+                await logField(req, row.ticketID, 'status', row.status, 'ASSIGNED');
+            }
+        }
     }
 
     for (const row of changed) {
