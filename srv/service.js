@@ -2,7 +2,7 @@ const cds = require('@sap/cds');
 
 const { beforeCreateTicket, afterCreateTicket, onUpdateTicket, onReadTicket, onSubmitTicket, restrictDeleteToDrafts, stampSlaTimestamps } = require('./handlers/ticket');
 const { onCurrentUser, onAssignTickets } = require('./handlers/dashboard');
-const { restrictConsultantChildByTicket, restrictConsultantChildByForm } = require('./handlers/consultant');
+const { restrictChildByTicket, restrictChildByForm, restrictAttachmentWrite } = require('./handlers/consultant');
 
 /* =========================================================
    ITSM SERVICE — AGGREGATE ROOT ARCHITECTURE
@@ -41,11 +41,12 @@ const { restrictConsultantChildByTicket, restrictConsultantChildByForm } = requi
    inline in the ticket handlers instead.
 
    The one exception is READ: unlike CREATE/UPDATE, a client can
-   (and the Consultant portal's own attachments/comments/history
-   panels do) query a child entity directly rather than only
-   through $expand on Tickets. restrictConsultantChildByTicket/
-   ByForm close the read side of that gap for Consultants
-   specifically — see srv/handlers/consultant.js.
+   (and the Consultant/End User portals' own attachments/comments/
+   history panels do) query a child entity directly rather than
+   only through $expand on Tickets. restrictChildByTicket/ByForm
+   close the read side of that gap for every non-privileged role
+   (Consultant scoped to messageProcessor = me, everyone else to
+   reportedBy = me) — see srv/handlers/consultant.js.
 
    No business logic belongs in this file.
    ========================================================= */
@@ -71,12 +72,18 @@ module.exports = cds.service.impl(async function () {
     this.on('assignTickets', onAssignTickets);
 
     // Ticket's own child entities — reachable directly, not only via
-    // $expand, so each needs the same Consultant ownership check as Tickets.
+    // $expand, so each needs the same ownership check as Tickets itself.
     for (const entity of [IncidentForms, Attachments, TicketComments, ScheduledActions, TicketHistory]) {
-        this.before('READ', entity, restrictConsultantChildByTicket);
+        this.before('READ', entity, restrictChildByTicket);
     }
     for (const entity of [TicketSAPNotes, SAPNoteSearchCriteria]) {
-        this.before('READ', entity, restrictConsultantChildByForm);
+        this.before('READ', entity, restrictChildByForm);
     }
+
+    // Attachments is the one child entity still writable standalone (every
+    // other one is locked Insertable:false in service.cds) — guard its
+    // write side by the same ownership scope, so a client can't attach a
+    // file to (or edit/remove one from) a ticket outside their own scope.
+    this.before(['CREATE', 'UPDATE', 'DELETE'], Attachments, restrictAttachmentWrite);
 
 });

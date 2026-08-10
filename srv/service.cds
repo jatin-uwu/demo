@@ -17,14 +17,48 @@ service ITSMService {
 
     /*=====================================================
         MASTER DATA
-        Full CRUD — maintained by admins, referenced
-        everywhere else by plain code/id, not association.
+        Read-open to every authenticated persona (End User,
+        Support Team, Consultant all reference it for dropdowns,
+        code->name lookups and the assignee/team pickers) but
+        writable only by Admin — none of the three personas'
+        screens ever create/update/delete master data, so a plain
+        End User or Consultant being able to POST/PATCH/DELETE it
+        via a direct API call would be a pure hole, not a feature.
     =====================================================*/
+    @restrict: [
+        { grant: 'READ', to: 'authenticated-user' },
+        { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Admin' }
+    ]
     entity LookupValues       as projection on master.LookupValue;
+
+    @restrict: [
+        { grant: 'READ', to: 'authenticated-user' },
+        { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Admin' }
+    ]
     entity Users              as projection on master.User;
+
+    @restrict: [
+        { grant: 'READ', to: 'authenticated-user' },
+        { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Admin' }
+    ]
     entity SupportTeams       as projection on master.SupportTeam;
+
+    @restrict: [
+        { grant: 'READ', to: 'authenticated-user' },
+        { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Admin' }
+    ]
     entity Systems            as projection on master.SystemMaster;
+
+    @restrict: [
+        { grant: 'READ', to: 'authenticated-user' },
+        { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Admin' }
+    ]
     entity SoftwareComponents as projection on master.SoftwareComponent;
+
+    @restrict: [
+        { grant: 'READ', to: 'authenticated-user' },
+        { grant: ['CREATE', 'UPDATE', 'DELETE'], to: 'Admin' }
+    ]
     entity ConfigurationItems as projection on master.ConfigurationItem;
 
     // Per-prefix ticket number counters. Read-only over the API: the only

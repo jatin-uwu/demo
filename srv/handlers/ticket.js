@@ -40,6 +40,15 @@ async function beforeCreateTicket(req) {
     data.status = STATUS_DRAFT;
     data.reportedBy = currentUserId(req);
 
+    // Assignment is Service Group's job (assignTickets action), never
+    // something a ticket's own creator decides — without this, a plain
+    // CREATE payload could hand a brand-new ticket straight to an engineer/
+    // team of the requester's choosing, bypassing triage entirely.
+    if (!req.user.is('ServiceGroup') && !req.user.is('Admin')) {
+        delete data.messageProcessor;
+        delete data.supportTeam;
+    }
+
     if (Array.isArray(data.comments) && data.comments.length) {
         const author = currentUserId(req);
         for (const comment of data.comments) {
@@ -71,30 +80,44 @@ async function afterCreateTicket(data, req) {
 
 
 /* ---------------------------------------------------------
+ * Ownership gate for plain UPDATE, covering every role that isn't
+ * unrestricted (Admin, ServiceGroup — same carve-out onReadTicket uses).
  * A Consultant may only touch a ticket already assigned to them, and only
  * its engineer/technical fields — never routing, classification or
- * ownership. Must run and finish *before* stampSlaTimestamps reads
+ * ownership. Everyone else (the End User / requester case) may only touch
+ * a ticket they themselves reported — otherwise a client could PATCH
+ * another user's ticket by ticketID alone, since onReadTicket's own row
+ * scoping only applies to READ, not UPDATE.
+ *
+ * Must run and finish *before* stampSlaTimestamps reads
  * req.data.messageProcessor — CAP runs same-phase `before` handlers
  * concurrently, not sequentially, so this can't be a second, separately
  * registered `before` hook (its async ownership-check query would race
  * stampSlaTimestamps rather than reliably precede it). Called directly,
  * in order, from the front of stampSlaTimestamps instead — see below.
  * ------------------------------------------------------- */
-async function restrictConsultantUpdate(req) {
+async function restrictOwnerUpdate(req) {
 
-    if (!req.user.is('Consultant') || req.user.is('Admin')) return;
+    if (req.user.is('Admin') || req.user.is('ServiceGroup')) return;
 
     const ticketID = keyOf(req, 'ticketID');
     const { Ticket } = cds.entities('itsm.txn');
-    const ticket = await SELECT.one.from(Ticket).columns('messageProcessor').where({ ticketID });
+    const ticket = await SELECT.one.from(Ticket).columns('messageProcessor', 'reportedBy').where({ ticketID });
+    if (!ticket) return;
 
-    if (!ticket || ticket.messageProcessor !== currentUserId(req)) {
-        return req.reject(403, 'You can only update tickets assigned to you.');
+    if (req.user.is('Consultant')) {
+        if (ticket.messageProcessor !== currentUserId(req)) {
+            return req.reject(403, 'You can only update tickets assigned to you.');
+        }
+        for (const field of CONSULTANT_LOCKED_TICKET_FIELDS) delete req.data[field];
+        if (req.data.incidentForm) {
+            for (const field of CONSULTANT_LOCKED_FORM_FIELDS) delete req.data.incidentForm[field];
+        }
+        return;
     }
 
-    for (const field of CONSULTANT_LOCKED_TICKET_FIELDS) delete req.data[field];
-    if (req.data.incidentForm) {
-        for (const field of CONSULTANT_LOCKED_FORM_FIELDS) delete req.data.incidentForm[field];
+    if (ticket.reportedBy !== currentUserId(req)) {
+        return req.reject(403, 'You can only update your own tickets.');
     }
 }
 
@@ -159,12 +182,13 @@ async function onUpdateTicket(req, next) {
 
 async function stampSlaTimestamps(req) {
 
-    // Strips locked fields (see restrictConsultantUpdate above) *before*
-    // this function's own reads of req.data below, so a Consultant's
-    // stripped-but-still-attempted messageProcessor change can never fall
-    // through into an assignedAt stamp. req.reject() throws, so an
-    // unauthorized Consultant never reaches the rest of this function.
-    await restrictConsultantUpdate(req);
+    // Ownership check first (see restrictOwnerUpdate above) — also strips
+    // a Consultant's locked fields *before* this function's own reads of
+    // req.data below, so a stripped-but-still-attempted messageProcessor
+    // change can never fall through into an assignedAt stamp. req.reject()
+    // throws, so an unauthorized caller never reaches the rest of this
+    // function.
+    await restrictOwnerUpdate(req);
 
     const ticketID = keyOf(req, 'ticketID');
     const bStatusChanging = 'status' in req.data;
@@ -261,7 +285,12 @@ async function onSubmitTicket(req) {
  * DELETE — additive, not in the reference repo (it has no
  * DELETE hook yet). A ticket that has left Draft is part of
  * the recorded process flow (history, SLA clocks, attachments),
- * so only tickets still in Draft may be deleted.
+ * so only tickets still in Draft may be deleted — and, same as
+ * restrictOwnerUpdate above, only by the reporter who owns it (Admin/
+ * ServiceGroup unrestricted; a Consultant never creates tickets, so has no
+ * legitimate reason to delete one). Without the ownership half of this,
+ * a client could DELETE another user's Draft by ticketID alone — status
+ * being Draft was previously the only check.
  * ------------------------------------------------------- */
 async function restrictDeleteToDrafts(req) {
 
@@ -269,10 +298,21 @@ async function restrictDeleteToDrafts(req) {
     const { Tickets } = cds.entities('ITSMService');
 
     const ticket = await SELECT.one.from(Tickets)
-        .columns('status').where({ ticketID });
+        .columns('status', 'reportedBy').where({ ticketID });
+    if (!ticket) return;
 
-    if (ticket && ticket.status !== STATUS_DRAFT) {
-        req.reject(403, 'Only tickets still in Draft can be deleted.');
+    if (ticket.status !== STATUS_DRAFT) {
+        return req.reject(403, 'Only tickets still in Draft can be deleted.');
+    }
+
+    if (req.user.is('Admin') || req.user.is('ServiceGroup')) return;
+
+    if (req.user.is('Consultant')) {
+        return req.reject(403, 'Consultants cannot delete tickets.');
+    }
+
+    if (ticket.reportedBy !== currentUserId(req)) {
+        return req.reject(403, 'You can only delete your own tickets.');
     }
 }
 
