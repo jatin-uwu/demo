@@ -47,10 +47,26 @@ const SYSTEM_FIELDS = [
 const CONSULTANT_LOCKED_TICKET_FIELDS = ['reportedBy', 'ticketType', 'messageProcessor', 'supportTeam'];
 const CONSULTANT_LOCKED_FORM_FIELDS = ['category1', 'category2', 'category3', 'category4', 'language', 'solutionCategory', 'recommendedPriority'];
 
+// Only ServiceGroup (or Admin) may set who / which team a ticket is routed
+// to — see the role doc atop service.cds ("ServiceGroup ... assigns them
+// to engineers"). A Consultant's own attempt is separately caught below by
+// restrictConsultantUpdate (CONSULTANT_LOCKED_TICKET_FIELDS); this closes
+// the same gap for the reporting Agent, which had no guard at all — the
+// End User ticket form's messageProcessor/supportTeam fields were plain
+// bound Selects, so a plain PATCH (or the initial CREATE) let the reporter
+// assign their own ticket, bypassing Service Group entirely.
+function stripAssignmentFields(req) {
+    if (req.user.is('ServiceGroup') || req.user.is('Admin')) return;
+    delete req.data.messageProcessor;
+    delete req.data.supportTeam;
+}
+
 
 async function beforeCreateTicket(req) {
 
     const data = req.data;
+
+    stripAssignmentFields(req);
 
     data.ticketNumber = await generateTicketNumber(data.ticketType);
     data.ticketID = data.ticketNumber;
@@ -59,18 +75,11 @@ async function beforeCreateTicket(req) {
     data.reportedBy = currentUserId(req);
 
     // Seed the system recommendation if the Agent already supplied Impact/Urgency.
+    // (Assignment stripping for non-SG/Admin is handled by stripAssignmentFields
+    // at the top of this handler, so it isn't repeated here.)
     if (data.incidentForm && (data.incidentForm.impact || data.incidentForm.urgency)) {
         const rec = deriveRecommendedPriority(data.incidentForm.impact, data.incidentForm.urgency);
         if (rec) data.incidentForm.recommendedPriority = rec;
-    }
-
-    // Assignment is Service Group's job (assignTickets action), never
-    // something a ticket's own creator decides — without this, a plain
-    // CREATE payload could hand a brand-new ticket straight to an engineer/
-    // team of the requester's choosing, bypassing triage entirely.
-    if (!req.user.is('ServiceGroup') && !req.user.is('Admin')) {
-        delete data.messageProcessor;
-        delete data.supportTeam;
     }
 
     if (Array.isArray(data.comments) && data.comments.length) {
@@ -219,7 +228,14 @@ async function onUpdateTicket(req, next) {
 
 async function stampSlaTimestamps(req) {
 
-    // Ownership check first (see restrictOwnerUpdate above) — also strips
+    // Same reasoning as beforeCreateTicket: strip first, synchronously, so
+    // an End User's attempted messageProcessor/supportTeam change is gone
+    // before this function's own bAssigneeChanging read below ever sees it
+    // — restrictOwnerUpdate's own field-stripping only covers a Consultant's
+    // locked fields, not this case.
+    stripAssignmentFields(req);
+
+    // Ownership check next (see restrictOwnerUpdate above) — also strips
     // a Consultant's locked fields *before* this function's own reads of
     // req.data below, so a stripped-but-still-attempted messageProcessor
     // change can never fall through into an assignedAt stamp. req.reject()

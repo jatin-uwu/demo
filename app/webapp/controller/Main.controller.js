@@ -63,17 +63,31 @@ sap.ui.define([
 
       // Who is looking at the form. Agent is the base role (none of the
       // elevated flags set). Fetched once; _applyRolePermissions() turns
-      // these into the per-field-group editable flags the view binds to.
+      // these into the per-field-group editable/visible flags the view binds to.
       // Defaults to Agent-like so the create/intake flow is never blocked
       // in the brief window before currentUser() resolves.
       this._role = { isServiceGroup: false, isConsultant: false, isAdmin: false, isAgent: true };
       this._loadRole();
+
+      // Secondary "role" model, kept alongside the richer _role above: it
+      // drives only whether Support Team/Message Processor render as editable
+      // Selects (ServiceGroup/Admin) or plain read-only text (everyone else who
+      // can see them, i.e. the Consultant). The whole field group is still
+      // shown/hidden by ui>/vAssign. The actual security boundary is
+      // srv/handlers/ticket.js stripAssignmentFields, not this.
+      this.getView().setModel(new JSONModel({ canAssign: false }), "role");
+      this._loadCurrentUserRole();
 
       // userId -> display name, for the read-only "Reported By" field.
       // Best-effort: loaded once here, formatUserName falls back to the raw
       // id until (or if) this resolves.
       this._mUserNames = {};
       this._loadUserNames();
+
+      // teamCode -> display name, for the read-only Support Team field
+      // shown to anyone who isn't ServiceGroup/Admin (see "role" above).
+      this._mTeamNames = {};
+      this._loadTeamNames();
 
       // The form is shared by two routes: "create" (new draft) and
       // "detail" (view an existing ticket). The view is cached and reused, so
@@ -96,6 +110,36 @@ sap.ui.define([
     formatUserName: function (sUserId) {
       if (!sUserId) { return ""; }
       return this._mUserNames[sUserId] || sUserId;
+    },
+
+    _loadTeamNames: function () {
+      var that = this;
+      var oBinding = this.getOwnerComponent().getModel().bindList("/SupportTeams");
+      oBinding.requestContexts(0, 999).then(function (aContexts) {
+        aContexts.forEach(function (oCtx) {
+          that._mTeamNames[oCtx.getProperty("teamCode")] = oCtx.getProperty("name");
+        });
+      }).catch(function () { /* best-effort */ });
+    },
+
+    formatTeamName: function (sCode) {
+      if (!sCode) { return ""; }
+      return this._mTeamNames[sCode] || sCode;
+    },
+
+    // isServiceGroup/isAdmin come from the server-side currentUser()
+    // function (derived from the authenticated identity, so a client can't
+    // forge it) — same call Dashboard.controller.js uses for its own
+    // role-gated UI.
+    _loadCurrentUserRole: function () {
+      var that = this;
+      var oModel = this.getOwnerComponent().getModel();
+      var oAction = oModel.bindContext("/currentUser(...)");
+      oAction.execute().then(function () {
+        var oCtx = oAction.getBoundContext();
+        var bCanAssign = !!(oCtx.getProperty("isServiceGroup") || oCtx.getProperty("isAdmin"));
+        that.getView().getModel("role").setProperty("/canAssign", bCanAssign);
+      }).catch(function () { /* best-effort — fields stay read-only */ });
     },
 
     /**

@@ -77,20 +77,31 @@
                 <Input value="{path: 'reportedBy', formatter: '.formatUserName'}" editable="false" width="100%"/>
               </VBox>
 
+              <!-- Whole group hidden from the Agent (ui>/vAssign). For those who
+                   do see it: an editable Select for ServiceGroup/Admin
+                   (role>/canAssign + edit rights via ui>/editAssess), plain
+                   read-only text for the Consultant. The real security boundary
+                   is srv/handlers/ticket.js stripAssignmentFields, not this. -->
               <VBox class="formField" visible="{ui>/vAssign}">
                 <Label text="Support Team"/>
                 <Select selectedKey="{supportTeam}" forceSelection="false" enabled="{ui>/editAssess}" width="100%"
+                        visible="{role>/canAssign}"
                         items="{ path: '/SupportTeams', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
                   <core:Item key="{teamCode}" text="{name}"/>
                 </Select>
+                <Input value="{path: 'supportTeam', formatter: '.formatTeamName'}" editable="false" width="100%"
+                       visible="{= !${role>/canAssign} }"/>
               </VBox>
 
               <VBox class="formField" visible="{ui>/vAssign}">
                 <Label text="Message Processor"/>
                 <Select selectedKey="{messageProcessor}" forceSelection="false" enabled="{ui>/editAssess}" width="100%"
+                        visible="{role>/canAssign}"
                         items="{ path: '/Users', parameters: { $filter : &quot;isActive eq true&quot;, $orderby: 'name' } }">
                   <core:Item key="{userId}" text="{name}"/>
                 </Select>
+                <Input value="{path: 'messageProcessor', formatter: '.formatUserName'}" editable="false" width="100%"
+                       visible="{= !${role>/canAssign} }"/>
               </VBox>
 
               <!-- Cascading categories. Each level is filled by the controller
