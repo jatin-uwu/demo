@@ -46,7 +46,7 @@
         <IconTabFilter text="Processing &amp; Dates" key="processing"/>
         <IconTabFilter text="Relationships &amp; Description" key="relationships"/>
         <IconTabFilter text="Attachments" key="attachments"/>
-        <IconTabFilter text="History" key="history"/>
+        <IconTabFilter text="History" key="history" visible="{ui>/vHistory}"/>
       </items>
     </IconTabHeader>
 
@@ -368,7 +368,7 @@
         </VBox>
 
         <!-- HISTORY -->
-        <VBox id="secHistory">
+        <VBox id="secHistory" visible="{ui>/vHistory}">
           <VBox class="sectionCard">
             <Text text="CHANGE HISTORY" class="sectionPill"/>
             <List id="historyTimeline" items="{hist>/list}" showSeparators="None" class="timelineList" noDataText="No changes recorded yet.">

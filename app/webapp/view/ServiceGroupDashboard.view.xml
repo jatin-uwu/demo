@@ -10,7 +10,9 @@
     <!-- ===== app header (unchanged): back · logo · title · View Tickets ===== -->
     <Bar class="appHeader">
       <contentLeft>
-        <Button icon="sap-icon://nav-back" type="Transparent" tooltip="Back to dashboard" press=".onGoDashboard" class="sapUiTinyMarginEnd"/>
+        <!-- This is the Service Group landing page (first screen after login),
+             so it has no Back button — there's nowhere behind it. The logo
+             stays as the home affordance. -->
         <Image src="images/ccentrik.png" height="30px" densityAware="false" class="appLogo" press=".onGoDashboard"/>
       </contentLeft>
       <contentMiddle>

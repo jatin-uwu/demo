@@ -165,6 +165,9 @@ sap.ui.define([
           // elevated roles. Admin is a superuser and can act as any of them.
           isAgent: !bSG && !bCon && !bAdmin
         };
+        // Login id of the caller — used to decide whether they are the ticket's
+        // original creator (drives Ticket History visibility, see below).
+        that._myUserId = oCtx.getProperty("userId") || null;
         that._applyRolePermissions();
       }).catch(function () { /* keep the Agent-like default */ });
     },
@@ -215,6 +218,28 @@ sap.ui.define([
       // is on the default model — mixing models in an inline `visible`
       // expression proved unreliable here, so the combined flag is computed.
       this._applyStatusVisibility();
+
+      // Ticket History is private to whoever raised the ticket.
+      this._applyHistoryVisibility();
+    },
+
+    /**
+     * Ticket History (the change timeline tab + section) is shown only to the
+     * user who originally raised the ticket — i.e. when the ticket's reportedBy
+     * matches the logged-in user. This hides it from the Service Group (and any
+     * other non-creator) at the UI level, while leaving the End User creator's
+     * view completely unchanged. The history data/API itself is untouched.
+     * Defaults to hidden until creator ownership is confirmed, so history is
+     * never briefly exposed to a non-creator.
+     */
+    _applyHistoryVisibility: function () {
+      var oUi = this.getView().getModel("ui");
+      if (!oUi) { return; }
+      var sReportedBy = this._oIncidentContext
+        && this._oIncidentContext.getProperty("reportedBy");
+      var bIsCreator = !!this._myUserId && !!sReportedBy
+        && sReportedBy === this._myUserId;
+      oUi.setProperty("/vHistory", bIsCreator);
     },
 
     /**
@@ -340,12 +365,18 @@ sap.ui.define([
      * name immediately, instead of blank until the first Save round-trip.
      */
     _prefillReportedBy: function () {
+      var that = this;
       var oCtx = this._oIncidentContext;
       var oModel = this.getOwnerComponent().getModel();
       var oAction = oModel.bindContext("/currentUser(...)");
       oAction.execute().then(function () {
         var sUserId = oAction.getBoundContext().getProperty("userId");
-        if (sUserId) { oCtx.setProperty("reportedBy", sUserId); }
+        if (sUserId) {
+          oCtx.setProperty("reportedBy", sUserId);
+          // Creator is the current user on a fresh ticket — refresh history
+          // visibility now that reportedBy is known.
+          that._applyHistoryVisibility();
+        }
       }).catch(function () { /* best-effort — see above */ });
     },
 
@@ -372,6 +403,10 @@ sap.ui.define([
         that._applyStatusVisibility();
         // Scope the Sub Status list to this ticket's current Status.
         that._refreshSubStatus(sStatus);
+      }).catch(function () { /* ignore */ });
+      // Ticket History is only for the creator — decide once reportedBy loads.
+      this._oIncidentContext.requestProperty("reportedBy").then(function () {
+        that._applyHistoryVisibility();
       }).catch(function () { /* ignore */ });
       this._setupCategories();
       this._loadHistory(sId);
