@@ -10,7 +10,7 @@ sap.ui.define([
   return Controller.extend("itsm.ui.controller.AssignedTickets", {
 
     /* ---------------------------------------------------------
-     * Lifecycle. The table itself needs no client-side "mine only" filter —
+     * Lifecycle. The table itself nee```ds no client-side "mine only" filter —
      * the backend already scopes /Tickets to messageProcessor = me for a
      * Consultant (see srv/handlers/ticket.js onReadTicket), so this
      * controller only has to handle the Status/Priority/search refinements
